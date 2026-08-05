@@ -1,0 +1,28 @@
+{
+    "accounts": [
+        {
+            "accountUid": "d5c61173-126f-444f-89f8-1d5882d4f3be",
+            "accountType": "PRIMARY",
+            "defaultCategory": "d5c65a89-d2f2-4f70-bce4-5015382a29ce",
+            "currency": "GBP",
+            "createdAt": "2025-04-21T10:14:06.812Z",
+            "name": "Personal"
+        },
+        {
+            "accountUid": "1e0f4e68-7893-46f4-ad8f-13cbe6b9ea9d",
+            "accountType": "SAVINGS",
+            "defaultCategory": "145fde1c-3b1e-4ecb-86f7-715130e946ae",
+            "currency": "GBP",
+            "createdAt": "2025-06-18T18:55:45.119Z",
+            "name": "Easy Saver"
+        },
+        {
+            "accountUid": "c66b85b2-a6d0-4894-bd33-078d57646d8f",
+            "accountType": "SAVINGS",
+            "defaultCategory": "c66baeba-2809-4671-bcc8-2c8a257e2456",
+            "currency": "GBP",
+            "createdAt": "2025-07-18T17:15:42.649Z",
+            "name": "Cash ISA"
+        }
+    ]
+}
