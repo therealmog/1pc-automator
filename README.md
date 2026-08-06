@@ -34,25 +34,35 @@
 
 ---
 ## 📖 Overview
-<i>What's easier than saving a small amount each day and ending up with a lump sum?</i> <b>Getting a slaving machine to do it for you!</b> <br><br>
-This Python script automates this savings challenge by transferring the correct amount into a Starling Savings Goal each day.
+<i>What's easier than saving a small amount each day and ending up with a lump sum?</i> <b>Getting a slaving machine to do it for you of course!</b> <br><br>
+This Python script automates the process of saving by transferring the correct amount into a Starling Savings Goal each day.
 
-Rather than manually calculating and transferring the amount every day, the application:
+When the user enters their challenge start date, the program calculates all the required amounts at once and stores these in a JSON file. Every day, when the script is run, the program transfers the corresponding amount to the savings goal, then marks the transfer as completed in the `amounts.json` file.
 
-- Determines today's challenge amount based on a configurable start date.
-- Uses the Starling API to transfer the correct amount.
-- Records completed transfers to prevent duplicates.
-- Can be scheduled to run automatically (e.g. with AWS Lambda or Task Scheduler).
 
 ---
 
 ## ✨ Features
 
-- 📅 Configurable challenge start date
-- 💷 Automatic daily transfer calculation
-- 🔒 Secure authentication using a Starling Personal Access Token
-- ✅ Prevents duplicate transfers
-- ☁️ Ready for cloud deployment
+<h3>📅 Configurable challenge start date:</h3>
+
+When the program is first run, you will be asked to set your start date. If needed, you can rerun the `calculateAmounts.py` script to change the start date and recalculate the amounts.
+
+<h3>💷 Automatic daily transfer calculation</h3>
+
+The program checks how many days it has been since your challenge start date and transfers the corresponding amount into the Starling goal.
+
+<h3>🔒 Secure authentication using a Starling Personal Access Token</h3>
+
+Initially, you will need to store this token, which grants access to your account and savings spaces, securely in either a `.env` file (if being used locally), or in a secrets manager (like AWS Secrets Manager), since you do not want this token to end up in the wrong hands. 
+
+<h3>✅ Prevents duplicate transfers</h3>
+
+Once the transfer for a particular day has been completed, the program stores this day's transfer as completed. If the script is accidentally run again on a particular day, no duplicate transfer will occur since the app checks the status of the transfer completion first.
+
+<h3>☁️ Ready for cloud deployment</h3>
+
+This app is ideal for use on AWS or another cloud platform. A guide for how to do this will be done shortly.
 
 ---
 
