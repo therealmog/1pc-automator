@@ -6,6 +6,7 @@
   
 </p>
 <h3>Built using the Starling Bank API.</h3>
+<img src="imgs//starling-logo.png" width=150>
 <p align="left">
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
   <a href="https://developer.starlingbank.com/docs" target="_blank"><img src="https://img.shields.io/badge/API-Starling-00B5E2"></a>
