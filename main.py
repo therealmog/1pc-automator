@@ -5,64 +5,77 @@ import uuid
 import json
 import os
 
-# Loading the token
-TOKEN = os.getenv("STARLING_TOKEN")
-if TOKEN == None:
-    print("Token not found in .env file.")
-else:
-    print("Token loaded successfully.")
+class Automator:
+    def __init__(self):
+        # Loading the token
+        self.TOKEN = os.getenv("STARLING_TOKEN")
+        if self.TOKEN == None:
+            raise Exception("Token not found in .env file.")
+        else:
+            print("Token loaded successfully.")
 
-url = "https://api.starlingbank.com/api/v2/account/1e0f4e68-7893-46f4-ad8f-13cbe6b9ea9d"    # ID is the Easy Saver spaces ID.
-spacesURL = url + "/spaces"
-transferURL = url + "/savings-goals/5667db85-c91e-4a45-af58-92454ce13b29/add-money/"    # Need to add a UUID onto the end.
+        self.baseURL = "https://api.starlingbank.com/api/v2/account/d5c61173-126f-444f-89f8-1d5882d4f3be"    # ID is the Easy Saver spaces ID.
+        self.transferURL = self.baseURL + "/savings-goals/2c6a81e0-e1c4-42dd-ba67-f8cf723f6f3c/add-money/"    # Need to add a UUID onto the end.
 
-paid = False
-amount = 0
-todaysDate = datetime.date.today().strftime("%d/%m/%Y")
-amountsDict = {}
+        self.todaysDate = datetime.date.today().strftime("%d/%m/%Y")
 
-def makeTransfer(amount):
-    # Making the transfer
-    headers = {"Authorization" : f"Bearer {TOKEN}"}
-    accessURL = transferURL + str(uuid.uuid4())    # unique ID for the transfer
+        # Getting amounts details from JSON file.
+        self.amountsDict = {}
+        with open("amounts.json","r") as f:
+            self.amountsDict = json.load(f)
 
-    data = {
-        "amount" : {
-            "currency" : "GBP",
-            "minorUnits" : int(amount)
-        }
-    }
-    response = requests.put(accessURL,headers=headers, json=data)
-    print(response.status_code)
+        amount = self.amountsDict[self.todaysDate]["amount"]
+        if self.checkCompleted():
+            print(f"Today's money (£{amount/100}) has already been transferred.")
+        else:
+            self.makeTransfer(amount)
 
-    if response.status_code == 200:
-        setCompleted()
-    else:
-        print("Error")
-        print(response.headers)
-        print(response.text)
 
-def setCompleted():
-    # Sets JSON completed value to "true"
-    # Use previously accessed amountsDict
-    amountsDict[todaysDate]["completed"] = "true"
+    def checkCompleted(self):
+        # Checks the JSON file with todays date to see if transfer has been completed or not.
+        if self.amountsDict[self.todaysDate]["completed"] == "false":
+            return False
+        else:
+            return True     # safety case: unless "false" is explicitly seen, program returns true to avoid accidentally sending money again.
 
-    # Write the new value
-    with open("amounts.json","w") as f:
-        json.dump(amountsDict,f,indent=4)
+    def makeTransfer(self,amount):
+        # Making the transfer
+        headers = {
+            "Authorization" : f"Bearer {self.TOKEN}"
+            }
+        data = {
+                "amount" : {
+                    "currency" : "GBP",
+                    "minorUnits" : int(amount)
+                },
+                "reference" : "Sent using 1pC Automator"
+            }
+        accessURL = self.transferURL + str(uuid.uuid4())    # unique ID for the transfer
 
-# Get the amount for today if not paid, otherwise return "paid"
-with open("amounts.json","r") as f:
-    amountsDict = json.load(f)
-    todayDict = amountsDict[todaysDate]
+        
+        # Making the PUT request
+        response = requests.put(accessURL,headers=headers, json=data)
+        print(response.status_code)
 
-    if todayDict["completed"] == "true":
-        print("Today's amount has already been transfered.")
-    elif todayDict["completed"] == "false":
-        makeTransfer(amount=todayDict["amount"])
-    else:
-        print("Error.")
+        if response.status_code == 200:
+            print(f"Transfer of £{amount/100} completed.")
+            self.setCompleted()
+        else:
+            print("Error")
+            print(response.headers)
+            print(response.text)
 
+    def setCompleted(self):
+        # Sets JSON completed value to "true"
+        # Use previously accessed amountsDict
+        self.amountsDict[self.todaysDate]["completed"] = "true"
+
+        # Write the new value
+        with open("amounts.json","w") as f:
+            json.dump(self.amountsDict,f,indent=4)
+
+    
+automator = Automator()
 
 
 
