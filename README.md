@@ -3,9 +3,11 @@
 </p>
 
 <h1 align="left">Starling 1p Challenge Automator</h1>
-![Python](https://img.shields.io/badge/Python-3.11-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Status](https://img.shields.io/badge/Status-Active-success)
+<p align="left">
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+  <img src="https://img.shields.io/badge/API-Starling-00B5E2">
+  <img src="https://img.shields.io/badge/Status-Active-success">
+</p>
 
 <p align="center">
   Automatically completes the classic 1p savings challenge using the Starling Bank API.
