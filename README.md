@@ -1,9 +1,10 @@
-<p align="center">
-  <img src="assets/starling-logo.png" alt="Starling Bank Logo" width="90">
-</p>
 
-<h1 align="left">Starling 1p Challenge Automator</h1>
+
+<h1 align="left">1p Challenge Automator</h1>
+<h3>Built using the Starling Bank API.</h3>
 <p align="left">
+  <img src="imgs/starling-dev.png" alt="Starling Bank Logo" width="90">
+  <br>
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
   <img src="https://img.shields.io/badge/API-Starling-00B5E2">
   <img src="https://img.shields.io/badge/Status-Active-success">
