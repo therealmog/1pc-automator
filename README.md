@@ -2,7 +2,10 @@
   <img src="assets/starling-logo.png" alt="Starling Bank Logo" width="90">
 </p>
 
-<h1 align="center">Starling 1p Challenge Automator</h1>
+<h1 align="left">Starling 1p Challenge Automator</h1>
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-Active-success)
 
 <p align="center">
   Automatically completes the classic 1p savings challenge using the Starling Bank API.
