@@ -1,0 +1,23 @@
+<html>
+    <head>
+        <style>
+            .preheader {{
+                display: none;
+                max-height: 0;
+                overflow: hidden;
+            }}
+        </style>
+    </head>
+
+    <body>
+        <div class="preheader">£{total} saved so far.<br></div>
+        <h2>👛 1p Challenge Automator</h2>
+        <br>
+        <h1>Date: {date}</h1>
+        <h1>Transfer completed: £{amount}</h1>
+        <h1>So far: £{total} / £667.95 ({progressPercent}% achieved.)</h1><br><br>
+
+        Happy saving!
+        <h3>1pChallengeBot</h3>
+    </body>
+</html>
