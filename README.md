@@ -6,8 +6,9 @@
   
 </p>
 <h3>Built using the Starling Bank API.</h3>
-<img src="imgs//starling-logo.png" width=150>
+
 <p align="left">
+  <img src="imgs//starling-dev.png" width=110>
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
   <a href="https://developer.starlingbank.com/docs" target="_blank"><img src="https://img.shields.io/badge/API-Starling-00B5E2"></a>
   <img src="https://img.shields.io/badge/Status-Active-success">
@@ -15,13 +16,14 @@
 
 ---
 ## 👛 What's the 1p challenge?
-<p align="left">For someone who doesn't have a lot of money to spare each month, the idea of putting aside a lump sum can be difficult. </p>
+<p align="left">For many people, including those who may not have a lot of money to spare each month, the idea of putting aside a lump sum for their future self can be difficult. </p>
   <ul>
     <li>They may lack the motivation to save - they have the money now, so why bother saving?</li>
     <li>It may not be financially viable for them at that moment in time to put the money aside, but they still want to save.</li>
   </ul>
 <p align="left">The 1p challenge is designed to help someone save incrementally, where the amounts they save grow over time. <br></br></p>
-<p align="center">  
+<h2 align="center">A short demonstration:</h3>
+<p align="center">
   <b>On day 1</b>: Save 1p <i>(cmon that's easy!)</i><br>
   <b>On day 2</b>: Save 2p <i>(really?)</i><br>
   <b>On day 3</b>: Save 3p <i>(this saving business is a breeze!)</i><br>
