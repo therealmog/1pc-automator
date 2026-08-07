@@ -23,7 +23,7 @@ def calculate():
     amountsDict = {}
     date = START
     amount = 0
-    for i in range(1,365,1):
+    for i in range(1,366,1):
         amount = i
         dateKey = date.strftime("%d/%m/%Y")
         dateDict = {

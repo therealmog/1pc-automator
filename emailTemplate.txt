@@ -10,7 +10,7 @@
     </head>
 
     <body>
-        <div class="preheader">£{total} saved so far.<br></div>
+        <div class="preheader">It's day {day}, and you've saved £{total} so far. Great job! The more you save, the more your future self will thank you!{padding}</div>
         <h2>👛 1p Challenge Automator</h2>
         <br>
         <h1>Date: {date}</h1>

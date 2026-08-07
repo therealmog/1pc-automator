@@ -1,5 +1,5 @@
 from dotenv import set_key
-import requests
+import lib.requests as requests
 import datetime
 import uuid
 import json
@@ -10,6 +10,7 @@ from email.mime.text import MIMEText
 from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 import re
+import config
 
 class Automator:
     def __init__(self):
@@ -20,7 +21,7 @@ class Automator:
         else:
             print("Token loaded successfully.")
 
-        self.checkForEmail()
+        self.checkSettings()
 
         self.baseURL = "https://api.starlingbank.com/api/v2/account/d5c61173-126f-444f-89f8-1d5882d4f3be"    # ID is the Easy Saver spaces ID.
         self.transferURL = self.baseURL + "/savings-goals/2c6a81e0-e1c4-42dd-ba67-f8cf723f6f3c/add-money/"    # Need to add a UUID onto the end.
@@ -39,23 +40,24 @@ class Automator:
             self.amount = amount
             self.makeTransfer(amount)
 
-    def checkForEmail(self):
-        try:
-            emailCheck = os.getenv("EMAIL_RECIPIENT")
-            if emailCheck == None:
-                raise KeyError()
-        except KeyError:
-            emailInput = ""
-            EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+    def checkSettings(self):
+        # Getting settings from JSON file.
+        settingsDict = {}
+        with open("settings.json","r") as f:
+            settingsDict = json.load(f)
 
-            while True:
-                emailInput = input("Enter your email address you would like to receive transfer confirmations at: ").strip()
+        configFuncs = {
+            "valuesCalculated" : config.calculateAmounts,   # Also sets setDate and endDate
+            "userEmail" : config.setEmail
 
-                if EMAIL_PATTERN.fullmatch(emailInput):
-                    break
+        }
+        # Checking for if amounts have been set.
+        for each in configFuncs:
+            if settingsDict[each] == "null":
+                # Runs corresponding function to set a value to that setting
+                configFuncs[each]()
 
-                print("Invalid email address. Please try again.")
-            set_key(Path(".env"),"EMAIL_RECIPIENT",emailInput)
+
 
     def checkCompleted(self):
         # Checks the JSON file with todays date to see if transfer has been completed or not.
@@ -74,7 +76,7 @@ class Automator:
                     "currency" : "GBP",
                     "minorUnits" : int(amount)
                 },
-                "reference" : "Sent using 1pC Automator"
+                "reference" : f"1pC Automator • £{self.getTotal(amount)/100} saved so far."
             }
         accessURL = self.transferURL + str(uuid.uuid4())    # unique ID for the transfer
 
@@ -120,6 +122,31 @@ class Automator:
 
     def sendEmail(self):
         message = EmailMessage()
+        template = """<html>
+    <head>
+        <style>
+            .preheader {{
+                display: none;
+                max-height: 0;
+                overflow: hidden;
+            }}
+            h1 {{
+                align: center;}}
+        </style>
+    </head>
+
+    <body>
+        <div class="preheader">It's day {day}, and you've saved £{total} so far. Great job! The more you save, the more your future self will thank you!{padding}</div>
+        <h2>👛 1p Challenge Automator</h2>
+        <br>
+        <h1>Date:<br>{date}</h1>
+        <h1>Transfer completed: £{amount}</h1>
+        <h1>So far: £{total} / £667.95 ({progressPercent}% achieved.)</h1><br><br>
+
+        Happy saving!
+        <h3>1pChallengeBot</h3>
+    </body>
+</html>"""
 
         EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
         EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
@@ -129,18 +156,20 @@ class Automator:
         message = MIMEMultipart("alternative")
         message["From"] = EMAIL_ADDRESS
         message["To"] = EMAIL_RECIPIENT
-        message["Subject"] = f"1p Challenge: Day {self.amount} transfer confirmation"
+        message["Subject"] = f"🪙 1p Challenge: Day {self.amount} transfer confirmation"
 
-        # Read HTML template
+        """# Read HTML template
         with open("emailTemplate.txt", "r", encoding="utf-8") as f:
-            body = f.read()
+            body = f.read()"""
 
         # Fill in placeholders
-        html = body.format(
+        html = template.format(
             date=self.todaysDate,
             amount=str(self.amount/100),
             total=str(self.getTotal(self.amount)/100),
-            progressPercent=str(self.getPercentage(self.amount))
+            progressPercent=str(self.getPercentage(self.amount)),
+            day=self.amount,
+            padding="&nbsp;&zwnj;" * 30
         )
 
         # Attach HTML
@@ -161,8 +190,3 @@ class Automator:
 
     
 automator = Automator()
-
-
-
-
-
