@@ -1,0 +1,23 @@
+{
+  "day": 65,
+  "quote": "A rich man spends when a smart man saves.",
+  "todayTransfer": 0.65,
+  "transferStatus": "not_completed",
+  "transferDueTime": "01:00",
+  "savedSoFar": 21.45,
+  "goal": 667.95,
+  "chartView": "progress_bar",
+  "settings": {
+    "email": "you@example.com",
+    "transferTime": "01:00",
+    "progressEmailsEnabled": true
+  },
+  "history": [
+    { "day": 60, "amount": 20.10 },
+    { "day": 61, "amount": 20.31 },
+    { "day": 62, "amount": 20.53 },
+    { "day": 63, "amount": 20.76 },
+    { "day": 64, "amount": 21.00 },
+    { "day": 65, "amount": 21.45 }
+  ]
+}
