@@ -59,28 +59,80 @@
 
       <!-- SETTINGS VIEW -->
       <div class="settings-form" id="settingsView">
-        <div class="field">
-          <label for="emailInput">Notification email</label>
-          <input type="email" id="emailInput" placeholder="you@example.com">
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Current email</div>
+            <div class="settings-value" id="settingsEmailValue">—</div>
+          </div>
+          <button class="teal-btn" id="btnChangeEmail">
+            <span class="material-symbols-outlined">mail</span> Change email
+          </button>
         </div>
-        <div class="field">
-          <label for="timeInput">Daily transfer time</label>
-          <input type="time" id="timeInput">
+
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Daily transfer time</div>
+            <div class="settings-value" id="settingsTransferTimeValue">—</div>
+          </div>
+          <button class="teal-btn" id="btnChangeTransferTime">
+            <span class="material-symbols-outlined">schedule</span> Change transfer time
+          </button>
         </div>
-        <div class="field toggle-row">
-          <input type="checkbox" id="progressEmailToggle">
-          <label for="progressEmailToggle" style="margin:0;">Send weekly progress emails</label>
+
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Challenge status</div>
+            <div class="settings-value" id="settingsStatusValue">
+              Active
+              <span class="muted-sub" id="settingsEndDateValue">(ends —)</span>
+            </div>
+          </div>
+          <button class="teal-btn" id="btnPauseChallenge">
+            <span class="material-symbols-outlined">pause</span> Pause challenge
+          </button>
         </div>
-        <button class="save-btn" id="saveSettingsBtn">Save changes</button>
+
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Next transfer</div>
+            <div class="settings-value" id="settingsNextTransferValue">—</div>
+          </div>
+          <button class="teal-btn" id="btnSkipNextTransfer">
+            <span class="material-symbols-outlined">skip_next</span> Skip next transfer
+          </button>
+        </div>
       </div>
 
     </div>
 
     <aside class="sidebar">
-      <h2>⚙️ Quick settings</h2>
-      <button class="qs-btn" id="qsChangeEmail">✉️ Change email</button>
-      <button class="qs-btn" id="qsSendProgress">📤 Send progress email</button>
-      <button class="qs-btn" id="qsChangeTime">🕐 Change transfer time</button>
+      <div id="quickSettingsPanel">
+        <h2><span class="material-symbols-outlined">tune</span> Quick settings</h2>
+        <button class="qs-btn" id="qsChangeEmail"><span class="material-symbols-outlined">mail</span> Change email</button>
+        <button class="qs-btn" id="qsSendProgress"><span class="material-symbols-outlined">send</span> Send progress email</button>
+        <button class="qs-btn" id="qsChangeTime"><span class="material-symbols-outlined">schedule</span> Change transfer time</button>
+      </div>
+
+      <div class="danger-zone hidden" id="dangerZonePanel">
+        <div class="danger-header">
+          <span class="material-symbols-outlined">warning</span> DANGER ZONE
+        </div>
+
+        <button class="teal-btn full" id="btnRestartChallenge">
+          <span class="material-symbols-outlined">restart_alt</span> Restart challenge
+        </button>
+        <p class="danger-desc">Recalculates your amounts based on new specified start date.</p>
+
+        <button class="teal-btn full" id="btnEndChallenge">
+          <span class="material-symbols-outlined">block</span> End challenge
+        </button>
+        <p class="danger-desc">Stop any future transfers.</p>
+
+        <button class="teal-btn full" id="btnWipeData">
+          <span class="material-symbols-outlined">delete_forever</span> Wipe stored AWS data
+        </button>
+        <p class="danger-desc">This will remove ALL stored personal data, including any details stored in Secrets Manager.</p>
+      </div>
     </aside>
   </main>
 </div>
