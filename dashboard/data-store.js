@@ -2,14 +2,22 @@
  * data-store.js
  * ---------------------------------------------------------------
  * Single source of truth for every variable the dashboard needs.
- * Loads from data.json (placeholders for anything not yet wired to
- * a real file) and then overrides values from your actual project
- * files — amounts.json and settings.json — so any other script
- * (app.js, or a future page) can read/update the same values.
  *
- * Swap-in path for a real backend later: replace the fetch() calls
- * in load() / save() with calls to your API, and nothing else in
- * the app has to change.
+ * Loads:
+ *   - data.json
+ *   - ../amounts.json
+ *   - ../settings.json
+ *
+ * amounts.json is used for:
+ *   - today's transfer amount/status
+ *   - the cumulative line graph
+ *
+ * settings.json is used for:
+ *   - transfer time
+ *   - email
+ *   - start/end dates
+ *   - next transfer date
+ *   - currentAmount
  * ---------------------------------------------------------------
  */
 
@@ -19,17 +27,24 @@ const DataStore = (() => {
 
   async function load(path = "data.json") {
     const res = await fetch(path, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
+
+    if (!res.ok) {
+      throw new Error(`Failed to load ${path}: ${res.status}`);
+    }
+
     state = await res.json();
 
-    // Pull today's transfer amount + completed status from your real
-    // amounts.json, and transferTime/startDate/userEmail/endDate from
-    // settings.json — overriding whatever placeholder values were in
-    // data.json.
-    await loadTodayTransferFromAmounts();
+    // Load the complete amounts.json file.
+    await loadAmountsFromFile();
+
+    // Load settings.json.
     await loadSettingsFromFile();
 
+    // Restore any locally stored skip state.
+    restoreLocalSkipState();
+
     notify();
+
     return state;
   }
 
@@ -42,161 +57,540 @@ const DataStore = (() => {
   }
 
   function get() {
-    if (!state) throw new Error("DataStore not loaded yet — call load() first");
+    if (!state) {
+      throw new Error("DataStore not loaded yet — call load() first");
+    }
+
     return state;
   }
 
-  /**
-   * Formats a Date as "DD/MM/YYYY" — matches the key format used
-   * in amounts.json / settings.json (e.g. "08/08/2026").
-   */
   function formatDateDDMMYYYY(date = new Date()) {
     const dd = String(date.getDate()).padStart(2, "0");
-    const mm = String(date.getMonth() + 1).padStart(2, "0"); // getMonth() is 0-indexed
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
     const yyyy = date.getFullYear();
+
     return `${dd}/${mm}/${yyyy}`;
   }
 
-  /** Parses a "DD/MM/YYYY" string into a Date (midnight local time). */
   function parseDateDDMMYYYY(str) {
     const [dd, mm, yyyy] = str.split("/").map(Number);
     return new Date(yyyy, mm - 1, dd);
   }
 
-  /**
-   * Reads an entry's "completed" field, whether it's stored as a real
-   * boolean (true) or a string ("true") — both come back true here.
-   */
   function isTransferCompleted(entry) {
     if (!entry) return false;
-    return entry.completed === true || entry.completed === "true";
+
+    return (
+      entry.completed === true ||
+      entry.completed === "true"
+    );
   }
 
   /**
-   * amounts.json shape (one level up from the dashboard folder):
-   *   { "08/08/2026": { "amount": 65, "completed": "true" }, ... }
-   * amount is pence -> divide by 100 for pounds.
-   * completed drives the "Completed!" / "Not completed" status line.
+   * Load the complete amounts.json file.
+   *
+   * Example:
+   *
+   * {
+   *   "05/06/2026": {
+   *     "amount": 1,
+   *     "completed": true
+   *   },
+   *   "06/06/2026": {
+   *     "amount": 2,
+   *     "completed": true
+   *   }
+   * }
+   *
+   * Amounts are stored in pence.
    */
-  async function loadTodayTransferFromAmounts(path = "../amounts.json") {
+  async function loadAmountsFromFile(path = "../amounts.json") {
     try {
       const res = await fetch(path, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
-      const amounts = await res.json();
 
-      const todayKey = formatDateDDMMYYYY();
-      const entry = amounts[todayKey];
-
-      if (!entry || typeof entry.amount !== "number") {
-        console.warn(`No entry for ${todayKey} in ${path} — keeping fallback value from data.json.`);
-        return;
+      if (!res.ok) {
+        throw new Error(`Failed to load ${path}: ${res.status}`);
       }
 
-      state.todayTransfer = entry.amount / 100; // pence -> pounds
-      state.transferStatus = isTransferCompleted(entry) ? "completed" : "not_completed";
+      const amounts = await res.json();
+
+      state.amounts = amounts;
+
+      const todayKey = formatDateDDMMYYYY();
+      const todayEntry = amounts[todayKey];
+
+      if (
+        todayEntry &&
+        typeof todayEntry.amount === "number"
+      ) {
+        // amounts.json stores pence.
+        state.todayTransfer = todayEntry.amount / 100;
+
+        state.transferStatus = isTransferCompleted(todayEntry)
+          ? "completed"
+          : "not_completed";
+      } else {
+        console.warn(
+          `No entry for ${todayKey} in ${path} — keeping fallback transfer values.`
+        );
+      }
     } catch (err) {
-      console.warn(`Could not load today's transfer from ${path}:`, err);
+      console.warn(
+        `Could not load amounts from ${path}:`,
+        err
+      );
+
+      // Keep a safe fallback so the rest of the dashboard
+      // continues to function.
+      state.amounts = state.amounts || {};
     }
   }
 
   /**
-   * settings.json shape (one level up from the dashboard folder):
-   *   { "userEmail": "...", "transferTime": "01:00",
-   *     "startDate": "05/06/2026", "endDate": "07/07/2027" }
+   * Return the chronological amounts data up to and including today.
    *
-   * - transferTime feeds the "(due today at HH:MM)" text and the
-   *   Settings tab's "Daily transfer time" row.
-   * - userEmail feeds the Settings tab's "Current email" row.
-   * - endDate feeds the Settings tab's "(ends ...)" text.
-   * - startDate is used to CALCULATE "saved so far" rather than
-   *   storing it directly: this is the classic 1p-a-day challenge,
-   *   so by day n (counting the start date itself as day 1) the
-   *   total saved is 1p + 2p + ... + np = n(n+1)/2 pence — but only
-   *   once today's transfer has actually completed. If it hasn't,
-   *   we show yesterday's running total instead (day n-1).
+   * The returned objects contain:
+   *   - date
+   *   - amount (pounds)
+   *   - completed
+   *   - cumulative (pounds)
+   *
+   * Only completed transfers increase the cumulative total.
+   * Uncompleted days still receive a point, but the line remains flat.
+   */
+  function cumulativeHistory() {
+    const amounts = get().amounts || {};
+
+    const today = new Date();
+    const todayMidnight = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+    const entries = Object.entries(amounts)
+      .map(([dateString, entry]) => {
+        if (!entry || typeof entry.amount !== "number") {
+          return null;
+        }
+
+        const date = parseDateDDMMYYYY(dateString);
+
+        return {
+          dateString,
+          date,
+          amountPence: entry.amount,
+          amount: entry.amount / 100,
+          completed: isTransferCompleted(entry),
+        };
+      })
+      .filter(Boolean)
+      .filter((entry) => entry.date <= todayMidnight)
+      .sort((a, b) => a.date - b.date);
+
+    let cumulativePence = 0;
+
+    return entries.map((entry) => {
+      if (entry.completed) {
+        cumulativePence += entry.amountPence;
+      }
+
+      return {
+        date: entry.dateString,
+        amount: entry.amount,
+        completed: entry.completed,
+        cumulative: cumulativePence / 100,
+      };
+    });
+  }
+
+  /**
+   * Load settings.json.
    */
   async function loadSettingsFromFile(path = "../settings.json") {
     try {
       const res = await fetch(path, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
+
+      if (!res.ok) {
+        throw new Error(`Failed to load ${path}: ${res.status}`);
+      }
+
       const settings = await res.json();
+
+      state.settingsFile = { ...settings };
 
       if (settings.transferTime) {
         state.transferDueTime = settings.transferTime;
-        state.settings = { ...state.settings, transferTime: settings.transferTime };
+
+        state.settings = {
+          ...state.settings,
+          transferTime: settings.transferTime,
+        };
       }
 
       if (settings.userEmail) {
-        state.settings = { ...state.settings, email: settings.userEmail };
+        state.settings = {
+          ...state.settings,
+          email: settings.userEmail,
+        };
       }
 
       if (settings.endDate) {
-        state.settings = { ...state.settings, endDate: settings.endDate };
+        state.settings = {
+          ...state.settings,
+          endDate: settings.endDate,
+        };
+      }
+
+      if (settings.nextTransferDate) {
+        state.settings = {
+          ...state.settings,
+          nextTransferDate: settings.nextTransferDate,
+        };
       }
 
       if (settings.startDate) {
         const start = parseDateDDMMYYYY(settings.startDate);
         const today = new Date();
-        const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        const startMidnight = new Date(
+          start.getFullYear(),
+          start.getMonth(),
+          start.getDate()
+        );
+
+        const todayMidnight = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate()
+        );
+
         const msPerDay = 24 * 60 * 60 * 1000;
-        const dayNumber = Math.round((todayMidnight - startMidnight) / msPerDay) + 1; // start date = Day 1
 
-        state.day = dayNumber; // the "Day 65" badge — always the real calendar count
+        const dayNumber =
+          Math.round(
+            (todayMidnight - startMidnight) / msPerDay
+          ) + 1;
 
-        // "Saved so far" only counts today's contribution once it's completed.
-        // If not completed yet, fall back to yesterday's running total.
-        const effectiveDay = state.transferStatus === "completed" ? dayNumber : dayNumber - 1;
-        const pence = effectiveDay > 0 ? (effectiveDay * (effectiveDay + 1)) / 2 : 0;
-        state.savedSoFar = pence / 100; // pence -> pounds
+        state.day = dayNumber;
       }
     } catch (err) {
-      console.warn(`Could not load settings from ${path}:`, err);
+      console.warn(
+        `Could not load settings from ${path}:`,
+        err
+      );
     }
   }
 
-  // ---- convenience getters (the "variables" you asked for) ----
-  const day = () => get().day;
-  const quote = () => get().quote;
-  const todayTransfer = () => get().todayTransfer;
-  const transferStatus = () => get().transferStatus; // "completed" | "not_completed"
-  const transferDueTime = () => get().transferDueTime;
-  const savedSoFar = () => get().savedSoFar;
-  const goal = () => get().goal;
-  const progressPct = () => Math.min(100, (get().savedSoFar / get().goal) * 100);
-  const chartView = () => get().chartView; // "progress_bar" | "line_graph"
-  const settings = () => get().settings;
-  const history = () => get().history;
+  /**
+   * Restore locally stored skip state.
+   *
+   * This allows the UI to remember a skipped transfer during
+   * the current browser session.
+   */
+  function restoreLocalSkipState() {
+    try {
+      const stored = sessionStorage.getItem(
+        "1p-dashboard-skip"
+      );
 
-  // ---- setters: update in-memory state, notify UI, and persist ----
+      if (!stored) {
+        state.skipActive = false;
+        state.skippedTransferDate = null;
+        return;
+      }
+
+      const local = JSON.parse(stored);
+
+      if (local.nextTransferDate) {
+        state.settings = {
+          ...state.settings,
+          nextTransferDate: local.nextTransferDate,
+        };
+
+        state.settingsFile = {
+          ...(state.settingsFile || {}),
+          nextTransferDate: local.nextTransferDate,
+        };
+      }
+
+      if (
+        local.skipActive &&
+        local.nextTransferDate
+      ) {
+        const today = new Date();
+        const todayKey = formatDateDDMMYYYY(today);
+
+        const nextDate = parseDateDDMMYYYY(
+          local.nextTransferDate
+        );
+
+        if (
+          parseDateDDMMYYYY(todayKey) < nextDate
+        ) {
+          state.skipActive = true;
+          state.skippedTransferDate =
+            local.skippedTransferDate || null;
+
+          return;
+        }
+      }
+
+      sessionStorage.removeItem(
+        "1p-dashboard-skip"
+      );
+
+      state.skipActive = false;
+      state.skippedTransferDate = null;
+    } catch (e) {
+      console.warn(
+        "Could not restore skipped-transfer state:",
+        e
+      );
+
+      state.skipActive = false;
+      state.skippedTransferDate = null;
+    }
+  }
+
+  /**
+   * Skip the next transfer.
+   */
+  async function skipNextTransfer() {
+    const current =
+      state.settings &&
+      state.settings.nextTransferDate;
+
+    const baseDate = current
+      ? parseDateDDMMYYYY(current)
+      : new Date();
+
+    baseDate.setDate(baseDate.getDate() + 1);
+
+    const nextTransferDate =
+      formatDateDDMMYYYY(baseDate);
+
+    const skippedTransferDate =
+      current ||
+      formatDateDDMMYYYY(new Date());
+
+    state.settings = {
+      ...state.settings,
+      nextTransferDate,
+    };
+
+    state.settingsFile = {
+      ...(state.settingsFile || {}),
+      nextTransferDate,
+    };
+
+    state.skipActive = true;
+    state.skippedTransferDate =
+      skippedTransferDate;
+
+    try {
+      sessionStorage.setItem(
+        "1p-dashboard-skip",
+        JSON.stringify({
+          skipActive: true,
+          skippedTransferDate,
+          nextTransferDate,
+        })
+      );
+    } catch (e) {
+      console.warn(
+        "Could not persist skipped-transfer state:",
+        e
+      );
+    }
+
+    notify();
+    await save();
+
+    // Attempt to persist to the real settings.json.
+    try {
+      const res = await fetch(
+        "../settings.json",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(
+            state.settingsFile
+          ),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(
+        "Could not write nextTransferDate to ../settings.json. " +
+        "The UI/session state has been updated; " +
+        "a backend write endpoint is required for the JSON file itself.",
+        e
+      );
+    }
+  }
+
+  /**
+   * Undo the currently active skipped transfer.
+   */
+  async function unskipNextTransfer() {
+    const originalDate =
+      state.skippedTransferDate;
+
+    if (!originalDate) {
+      return;
+    }
+
+    state.settings = {
+      ...state.settings,
+      nextTransferDate: originalDate,
+    };
+
+    state.settingsFile = {
+      ...(state.settingsFile || {}),
+      nextTransferDate: originalDate,
+    };
+
+    state.skipActive = false;
+    state.skippedTransferDate = null;
+
+    try {
+      sessionStorage.removeItem(
+        "1p-dashboard-skip"
+      );
+    } catch (e) {
+      console.warn(
+        "Could not clear skipped-transfer state:",
+        e
+      );
+    }
+
+    notify();
+    await save();
+
+    // Attempt to persist the restored date to settings.json.
+    try {
+      const res = await fetch(
+        "../settings.json",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(
+            state.settingsFile
+          ),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(
+        "Could not write restored nextTransferDate to ../settings.json.",
+        e
+      );
+    }
+  }
+
+  // ---- convenience getters ----
+
+  const day = () => get().day;
+
+  const quote = () => get().quote;
+
+  const todayTransfer = () =>
+    get().todayTransfer;
+
+  const transferStatus = () =>
+    get().skipActive
+      ? "skipped"
+      : get().transferStatus;
+
+  const transferDueTime = () =>
+    get().transferDueTime;
+
+  const isTransferSkipped = () =>
+    !!get().skipActive;
+
+  const savedSoFar = () =>
+    get().savedSoFar;
+
+  const goal = () =>
+    get().goal;
+
+  const progressPct = () =>
+    Math.min(
+      100,
+      (get().savedSoFar / get().goal) * 100
+    );
+
+  const chartView = () =>
+    get().chartView;
+
+  const settings = () =>
+    get().settings;
+
+  const history = () =>
+    get().history;
+
+  const amounts = () =>
+    get().amounts || {};
+
+  const getCumulativeHistory = () =>
+    cumulativeHistory();
+
+  // ---- setters ----
+
   function update(partial) {
-    state = { ...state, ...partial };
+    state = {
+      ...state,
+      ...partial,
+    };
+
     notify();
     save();
   }
 
   function updateSettings(partial) {
-    state.settings = { ...state.settings, ...partial };
+    state.settings = {
+      ...state.settings,
+      ...partial,
+    };
+
     notify();
     save();
   }
 
   function markTransferCompleted() {
-    update({ transferStatus: "completed" });
+    update({
+      transferStatus: "completed",
+    });
   }
 
   function setChartView(view) {
-    update({ chartView: view });
+    update({
+      chartView: view,
+    });
   }
 
   async function save() {
-    // No backend yet: persist locally in the browser session only.
-    // Replace this with e.g. fetch('/api/data', { method: 'PUT', body: JSON.stringify(state) })
-    // once you have a Flask (or other) API behind the dashboard.
     try {
-      sessionStorage.setItem("1p-dashboard-data", JSON.stringify(state));
+      sessionStorage.setItem(
+        "1p-dashboard-data",
+        JSON.stringify(state)
+      );
     } catch (e) {
-      console.warn("Could not persist data:", e);
+      console.warn(
+        "Could not persist data:",
+        e
+      );
     }
   }
 
@@ -204,25 +598,40 @@ const DataStore = (() => {
     load,
     onChange,
     get,
+
     update,
     updateSettings,
+
     markTransferCompleted,
     setChartView,
+
     formatDateDDMMYYYY,
     parseDateDDMMYYYY,
     isTransferCompleted,
-    loadTodayTransferFromAmounts,
+
+    loadAmountsFromFile,
     loadSettingsFromFile,
+
+    cumulativeHistory,
+    getCumulativeHistory,
+
+    skipNextTransfer,
+    unskipNextTransfer,
+    isTransferSkipped,
+
     day,
     quote,
     todayTransfer,
     transferStatus,
     transferDueTime,
+
     savedSoFar,
     goal,
     progressPct,
+
     chartView,
     settings,
     history,
+    amounts,
   };
 })();

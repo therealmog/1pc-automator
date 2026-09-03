@@ -4,5 +4,6 @@
     "endDate": "18/06/2027",
     "userEmail": "amoghg75@yahoo.com",
     "transferTime" : "01:00",
-    "nextTransferDate" : "04/09/2026"
+    "nextTransferDate" : "04/09/2026",
+    "currentAmount" : 50000
 }

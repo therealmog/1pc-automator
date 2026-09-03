@@ -46,17 +46,38 @@ header {
   flex-wrap: wrap;
 }
 
+.title-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+}
+
 .title {
   font-size: 28px;
   font-weight: 700;
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin-right: auto;
+  white-space: nowrap;
 }
+
 .title .penny {
   color: var(--coin);
   font-family: 'JetBrains Mono', monospace;
+}
+
+.powered-by {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.powered-by span {
+  color: #51ffeb;
 }
 
 .tabs {
@@ -143,6 +164,7 @@ main {
 }
 .status-line.completed { color: var(--green); }
 .status-line.not_completed { color: var(--red); }
+.status-line.skipped { color: var(--blue); }
 .status-line .due { color: var(--muted); font-size: 12px; margin-left: 6px; }
 
 .saved-values {
@@ -229,6 +251,11 @@ main {
   cursor: pointer;
   transition: filter .15s;
 }
+
+.qs-btn[hidden] {
+  display: none !important;
+}
+
 .qs-btn:hover { filter: brightness(1.12); }
 .qs-btn:active { filter: brightness(0.95); }
 

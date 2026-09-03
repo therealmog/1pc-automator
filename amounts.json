@@ -1,19 +1,19 @@
 {
     "18/06/2026": {
         "amount": 1,
-        "completed": "false"
+        "completed": "true"
     },
     "19/06/2026": {
         "amount": 2,
-        "completed": "false"
+        "completed": "true"
     },
     "20/06/2026": {
         "amount": 3,
-        "completed": "false"
+        "completed": "true"
     },
     "21/06/2026": {
         "amount": 4,
-        "completed": "false"
+        "completed": "true"
     },
     "22/06/2026": {
         "amount": 5,
@@ -188,19 +188,19 @@
         "completed": "false"
     },
     "04/08/2026": {
-        "amount": 48,
+        "amount": 55,
         "completed": "false"
     },
     "05/08/2026": {
-        "amount": 49,
+        "amount": 65,
         "completed": "false"
     },
     "06/08/2026": {
-        "amount": 50,
+        "amount": 78,
         "completed": "false"
     },
     "07/08/2026": {
-        "amount": 51,
+        "amount": 81,
         "completed": "false"
     },
     "08/08/2026": {

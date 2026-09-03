@@ -10,7 +10,10 @@
 
 <div class="wrap">
   <header>
-    <div class="title"><span class="penny">1p</span> Challenge Automator</div>
+    <div class="title-group">
+      <div class="title"><span class="penny">1p</span> Challenge Automator</div>
+      <div class="powered-by">Powered by <span>Starling Bank API</span></div>
+    </div>
     <button class="icon-btn" id="infoBtn" title="About">ⓘ</button>
     <div class="tabs">
       <button class="tab-btn active" id="tabProgress">📊 PROGRESS</button>
@@ -111,6 +114,10 @@
         <button class="qs-btn" id="qsChangeEmail"><span class="material-symbols-outlined">mail</span> Change email</button>
         <button class="qs-btn" id="qsSendProgress"><span class="material-symbols-outlined">send</span> Send progress email</button>
         <button class="qs-btn" id="qsChangeTime"><span class="material-symbols-outlined">schedule</span> Change transfer time</button>
+        <button class="qs-btn" id="qsSkipNextTransfer"><span class="material-symbols-outlined">skip_next</span> Skip next transfer</button>
+        <button class="qs-btn" id="qsUnskipNextTransfer" style="display:none;">
+            <span class="material-symbols-outlined">undo</span> Unskip next transfer
+        </button>
       </div>
 
       <div class="danger-zone hidden" id="dangerZonePanel">
