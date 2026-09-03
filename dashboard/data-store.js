@@ -325,6 +325,8 @@ const DataStore = (() => {
           local.nextTransferDate
         );
 
+        // Keep the skipped state active while the postponed
+        // transfer date is still in the future.
         if (
           parseDateDDMMYYYY(todayKey) < nextDate
         ) {
@@ -336,6 +338,8 @@ const DataStore = (() => {
         }
       }
 
+      // The skipped transfer date has arrived, so the skip
+      // should no longer be considered active.
       sessionStorage.removeItem(
         "1p-dashboard-skip"
       );
@@ -355,8 +359,21 @@ const DataStore = (() => {
 
   /**
    * Skip the next transfer.
+   *
+   * Behaviour:
+   *   1. Remember the original transfer date.
+   *   2. Move nextTransferDate forward by one day.
+   *   3. Mark the transfer as skipped.
+   *   4. Persist the skipped state in sessionStorage.
+   *   5. Notify the UI so it can immediately update.
    */
   async function skipNextTransfer() {
+    // Do not allow a second skip while one is already active.
+    // This protects the original date required by Unskip.
+    if (state.skipActive) {
+      return false;
+    }
+
     const current =
       state.settings &&
       state.settings.nextTransferDate;
@@ -365,11 +382,13 @@ const DataStore = (() => {
       ? parseDateDDMMYYYY(current)
       : new Date();
 
+    // Move the next transfer forward by exactly one day.
     baseDate.setDate(baseDate.getDate() + 1);
 
     const nextTransferDate =
       formatDateDDMMYYYY(baseDate);
 
+    // Remember the original date so Unskip can restore it.
     const skippedTransferDate =
       current ||
       formatDateDDMMYYYY(new Date());
@@ -384,6 +403,8 @@ const DataStore = (() => {
       nextTransferDate,
     };
 
+    // This is what makes DataStore.transferStatus()
+    // return "skipped".
     state.skipActive = true;
     state.skippedTransferDate =
       skippedTransferDate;
@@ -404,10 +425,13 @@ const DataStore = (() => {
       );
     }
 
+    // Immediately update the dashboard.
     notify();
     await save();
 
-    // Attempt to persist to the real settings.json.
+    // Attempt to persist the changed date to the real
+    // settings.json file. This requires a backend that
+    // supports PUT requests.
     try {
       const res = await fetch(
         "../settings.json",
@@ -433,19 +457,26 @@ const DataStore = (() => {
         e
       );
     }
+
+    return true;
   }
 
   /**
    * Undo the currently active skipped transfer.
+   *
+   * Restores the original nextTransferDate that was saved
+   * when skipNextTransfer() was called.
    */
   async function unskipNextTransfer() {
     const originalDate =
       state.skippedTransferDate;
 
-    if (!originalDate) {
-      return;
+    // Nothing to undo.
+    if (!state.skipActive || !originalDate) {
+      return false;
     }
 
+    // Restore the original transfer date.
     state.settings = {
       ...state.settings,
       nextTransferDate: originalDate,
@@ -456,6 +487,7 @@ const DataStore = (() => {
       nextTransferDate: originalDate,
     };
 
+    // Clear the skipped state.
     state.skipActive = false;
     state.skippedTransferDate = null;
 
@@ -470,6 +502,7 @@ const DataStore = (() => {
       );
     }
 
+    // Immediately update the dashboard.
     notify();
     await save();
 
@@ -497,6 +530,8 @@ const DataStore = (() => {
         e
       );
     }
+
+    return true;
   }
 
   // ---- convenience getters ----
@@ -508,6 +543,16 @@ const DataStore = (() => {
   const todayTransfer = () =>
     get().todayTransfer;
 
+  /**
+   * When skipActive is true, this deliberately overrides
+   * the normal completed/not_completed status.
+   *
+   * Therefore the UI receives:
+   *
+   *   "skipped"
+   *
+   * while the transfer is skipped.
+   */
   const transferStatus = () =>
     get().skipActive
       ? "skipped"
@@ -615,6 +660,7 @@ const DataStore = (() => {
     cumulativeHistory,
     getCumulativeHistory,
 
+    // Skipped-transfer functionality.
     skipNextTransfer,
     unskipNextTransfer,
     isTransferSkipped,
