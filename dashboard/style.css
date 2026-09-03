@@ -164,7 +164,7 @@ main {
 }
 .status-line.completed { color: var(--green); }
 .status-line.not_completed { color: var(--red); }
-.status-line.skipped { color: var(--blue); }
+.status-line.skipped { color: #2b64f4; }
 .status-line .due { color: var(--muted); font-size: 12px; margin-left: 6px; }
 
 .saved-values {
