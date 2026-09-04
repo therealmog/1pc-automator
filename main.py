@@ -11,6 +11,7 @@ from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 import re
 import config
+from random import choice
 
 class Automator:
     def __init__(self):
@@ -25,6 +26,11 @@ class Automator:
 
         self.baseURL = "https://api.starlingbank.com/api/v2/account/d5c61173-126f-444f-89f8-1d5882d4f3be"    # ID is the Easy Saver spaces ID.
         self.transferURL = self.baseURL + "/savings-goals/2c6a81e0-e1c4-42dd-ba67-f8cf723f6f3c/add-money/"    # Need to add a UUID onto the end.
+
+        response = requests.get(self.baseURL+"/balance",headers={"Authorization" : f"Bearer {self.TOKEN}"})
+        if response.status_code == 200:
+            print(response.json())
+        
 
         self.todaysDate = datetime.date.today().strftime("%d/%m/%Y")
 
@@ -123,31 +129,74 @@ class Automator:
     def sendEmail(self):
         message = EmailMessage()
         template = """<html>
-    <head>
-        <style>
-            .preheader {{
-                display: none;
-                max-height: 0;
-                overflow: hidden;
-            }}
-            h1 {{
-                align: center;}}
-        </style>
-    </head>
+            <head>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap');
 
-    <body>
-        <div class="preheader">It's day {day}, and you've saved £{total} so far. Great job! The more you save, the more your future self will thank you!{padding}</div>
-        <h2>👛 1p Challenge Automator</h2>
-        <br>
-        <h1>Date:<br>{date}</h1>
-        <h1>Transfer completed: £{amount}</h1>
-        <h1>So far: £{total} / £667.95 ({progressPercent}% achieved.)</h1><br><br>
+                    body {{
+                        margin: 0;
+                        background: var(--bg);
+                        color: var(--text);
+                        font-family: 'Space Grotesk', system-ui, sans-serif;
+                        min-height: 100vh;
+                        padding: 32px 20px 60px;
+                    }}
 
-        Happy saving!
-        <h3>1pChallengeBot</h3>
-    </body>
-</html>"""
+                    .preheader {{
+                        display: none;
+                        max-height: 0;
+                        overflow: hidden;
+                    }}
 
+                    .title {{
+                        font-size: 22px;
+                        font-weight: 700;
+                        display: flex;
+                        align-items: baseline;
+                        gap: 8px;
+                        white-space: nowrap;
+                    }}
+
+                    .text-1p {{
+                        color: orange;
+                    }}
+                </style>
+            </head>
+
+            <body>
+                <div class="preheader">It's day {day}, and you've saved £{total} so far. Great job! The more you save, the more your future self will thank you!{padding}</div>
+                <p><div class="title"><span class="text-1p">1p</span> Challenge Automator</div>Confirmation of transfer</p>
+                <br>
+                <p><div class="title">Date:</div> {date}</p>
+                <p><div class="title">Transfer completed:</div> £{amount}</p>
+                <p><div class="title">So far:</div> £{total} / £667.95 ({progressPercent}% achieved.)</p><br><br>
+
+                Remember, {quote}
+                <h3>1pChallengeBot</h3>
+            </body>
+        </html>"""
+
+        quotes = [
+                "a rich man spends when a smart man saves.",
+                "do not save what is left after spending; spend what is left after saving.",
+                "beware of little expenses; a small leak will sink a great ship.",
+                "an investment in knowledge pays the best interest.",
+                "the habit of saving is itself an education.",
+                "never spend your money before you have earned it.",
+                "money is a terrible master but an excellent servant.",
+                "a penny saved is a penny earned.",
+                "save a little money each month and at the end of the year you will be surprised at how little you had.",
+                "the quickest way to double your money is to fold it in half and put it in your pocket.",
+                "it is not your salary that makes you rich; it is your spending habits.",
+                "small savings today can become big opportunities tomorrow.",
+                "financial freedom begins with taking control of your money.",
+                "every saved pound is a pound working for your future.",
+                "a goal without a plan is just a wish.",
+                "success is the sum of small efforts repeated day in and day out.",
+                "little by little, a little becomes a lot.",
+                "the best time to start saving was yesterday. The next best time is today.",
+                "discipline is choosing between what you want now and what you want most.",
+                "your future self will thank you for the money you save today."]
         EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
         EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
         EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT")
@@ -169,7 +218,8 @@ class Automator:
             total=str(self.getTotal(self.amount)/100),
             progressPercent=str(self.getPercentage(self.amount)),
             day=self.amount,
-            padding="&nbsp;&zwnj;" * 30
+            padding="&nbsp;&zwnj;" * 30,
+            quote=choice(quotes)
         )
 
         # Attach HTML

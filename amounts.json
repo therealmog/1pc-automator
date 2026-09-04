@@ -309,11 +309,11 @@
     },
     "03/09/2026": {
         "amount": 78,
-        "completed": "false"
+        "completed": "true"
     },
     "04/09/2026": {
         "amount": 79,
-        "completed": "false"
+        "completed": "true"
     },
     "05/09/2026": {
         "amount": 80,

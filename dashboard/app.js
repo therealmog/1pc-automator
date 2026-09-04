@@ -82,40 +82,104 @@ function getAmountHistory() {
     .sort((a, b) => a.date - b.date);
 }
 
+function getDateOffset(days) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function getTransferForDate(date) {
+  const dateString = DataStore.formatDateDDMMYYYY(date);
+  const entry = (DataStore.amounts() || {})[dateString];
+
+  return {
+    dateString,
+    amount: entry && typeof entry.amount === "number"
+      ? entry.amount / 100
+      : null,
+    completed: DataStore.isTransferCompleted(entry)
+  };
+}
+
+function renderTransferStatus(element, status, dueText) {
+  element.className = "status-line " + status;
+
+  if (status === "completed") {
+    element.innerHTML = "Completed!";
+  } else if (status === "skipped") {
+    element.innerHTML = `Skipped <span class="due">(${dueText})</span>`;
+  } else if (status === "scheduled") {
+    element.innerHTML = `Scheduled <span class="due">(${dueText})</span>`;
+  } else {
+    element.innerHTML = `Not completed <span class="due">(${dueText})</span>`;
+  }
+}
+
 function render() {
   const d = DataStore;
   const savedSoFar = getSavedSoFar();
   const goal = d.goal();
   const progressPct = Math.min(100, (savedSoFar / goal) * 100);
-  const transferStatus = d.transferStatus();
+  const rawTodayStatus = d.get().transferStatus;
+  const skipActive = d.isTransferSkipped();
+  const today = getTransferForDate(getDateOffset(0));
+  const next = getTransferForDate(getDateOffset(1));
 
   document.getElementById("dayNum").textContent = d.day();
   document.getElementById("quoteText").textContent = `"${currentQuote}"`;
+
   document.getElementById("todayTransfer").textContent =
-    d.todayTransfer().toFixed(2);
+    today.amount !== null
+      ? today.amount.toFixed(2)
+      : d.todayTransfer().toFixed(2);
+
+  document.getElementById("nextTransfer").textContent =
+    next.amount !== null
+      ? next.amount.toFixed(2)
+      : "0.00";
+
   document.getElementById("savedSoFar").textContent =
     savedSoFar.toFixed(2);
+
   document.getElementById("goalAmount").textContent =
     goal.toFixed(2);
 
-  // Status line.
-  const statusEl = document.getElementById("statusLine");
-  statusEl.className = "status-line " + transferStatus;
+  // A skip applies to today's transfer if it has not completed yet.
+  // If today's transfer has completed, the skip applies to tomorrow's
+  // transfer instead. This keeps today's historical status intact.
+  const todayStatus =
+    skipActive && rawTodayStatus !== "completed"
+      ? "skipped"
+      : rawTodayStatus;
 
-  if (transferStatus === "completed") {
-    statusEl.innerHTML = "Completed!";
-  } else if (transferStatus === "skipped") {
-    statusEl.innerHTML = `Skipped <span class="due">(due tomorrow at ${d.transferDueTime()})</span>`;
-  } else {
-    statusEl.innerHTML =
-      `Not completed <span class="due">(due today at ${d.transferDueTime()})</span>`;
-  }
+  const nextStatus =
+    skipActive && rawTodayStatus === "completed"
+      ? "skipped"
+      : "scheduled";
+
+  renderTransferStatus(
+    document.getElementById("statusLine"),
+    todayStatus,
+    todayStatus === "skipped"
+      ? `due tomorrow at ${d.transferDueTime()}`
+      : `due today at ${d.transferDueTime()}`
+  );
+
+  renderTransferStatus(
+    document.getElementById("nextStatusLine"),
+    nextStatus,
+    nextStatus === "skipped"
+      ? `due in 2 days at ${d.transferDueTime()}`
+      : `due tomorrow at ${d.transferDueTime()}`
+  );
 
   // Progress bar.
   document.getElementById("progressPct").textContent =
     `${progressPct.toFixed(1)}%`;
 
   const remaining = Math.max(0, goal - savedSoFar);
+
   document.getElementById("remaining").textContent =
     `£${remaining.toFixed(2)} to go`;
 
@@ -127,8 +191,10 @@ function render() {
 
   for (let i = 0; i < CELLS; i++) {
     const cell = document.createElement("div");
+
     cell.className =
       "penny-cell" + (i < filledCount ? " filled" : "");
+
     track.appendChild(cell);
   }
 
@@ -138,23 +204,35 @@ function render() {
   // Chart view toggle radios.
   const view = d.chartView();
 
-  document.querySelectorAll('input[name="chartView"]').forEach((r) => {
-    r.checked = r.value === view;
-  });
+  document
+    .querySelectorAll('input[name="chartView"]')
+    .forEach((r) => {
+      r.checked = r.value === view;
+    });
 
   document
     .getElementById("labelBar")
-    .classList.toggle("active-label", view === "progress_bar");
+    .classList.toggle(
+      "active-label",
+      view === "progress_bar"
+    );
 
   document
     .getElementById("labelLine")
-    .classList.toggle("active-label", view === "line_graph");
+    .classList.toggle(
+      "active-label",
+      view === "line_graph"
+    );
 
   document.getElementById("barView").style.display =
-    view === "progress_bar" ? "block" : "none";
+    view === "progress_bar"
+      ? "block"
+      : "none";
 
   document.getElementById("lineView").style.display =
-    view === "line_graph" ? "block" : "none";
+    view === "line_graph"
+      ? "block"
+      : "none";
 
   renderSettingsTab();
   updateSkipButtons();
@@ -248,7 +326,8 @@ function renderLineGraph(history) {
 }
 
 function ensureUnskipButton() {
-  let button = document.getElementById("qsUnskipNextTransfer");
+  let button =
+    document.getElementById("qsUnskipNextTransfer");
 
   if (button) {
     return button;
@@ -280,75 +359,21 @@ function ensureUnskipButton() {
   return button;
 }
 
-function unskipNextTransfer() {
-  const state = DataStore.get();
-
-  if (!state.skipActive) {
-    return false;
-  }
-
-  const originalTransferDate =
-    state.skippedTransferDate;
-
-  if (!originalTransferDate) {
-    console.warn(
-      "Cannot unskip transfer because the original transfer date was not stored."
-    );
-    return false;
-  }
-
-  // Restore the original date and clear the skip state atomically.
-  DataStore.update({
-    skipActive: false,
-    skippedTransferDate: null,
-
-    settings: {
-      ...(state.settings || {}),
-      nextTransferDate: originalTransferDate
-    },
-
-    settingsFile: {
-      ...(state.settingsFile || {}),
-      nextTransferDate: originalTransferDate
-    }
-  });
-
-  // Remove the temporary browser skip state.
+async function handleUnskipNextTransfer() {
   try {
-    sessionStorage.removeItem("1p-dashboard-skip");
-  } catch (e) {
-    console.warn(
-      "Could not clear local skipped-transfer state:",
-      e
+    const unskipped =
+      await DataStore.unskipNextTransfer();
+
+    if (unskipped) {
+      showToast("Next transfer unskipped");
+    }
+  } catch (err) {
+    console.error(
+      "Could not unskip transfer:",
+      err
     );
-  }
 
-  // Attempt to persist the restored date to the real settings file.
-  const latestState = DataStore.get();
-
-  fetch("../settings.json", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(
-      latestState.settingsFile
-    )
-  }).catch((e) => {
-    console.warn(
-      "Could not write restored nextTransferDate to ../settings.json. " +
-      "The browser/session state has still been restored; " +
-      "a backend write endpoint is required to physically modify the JSON file.",
-      e
-    );
-  });
-
-  return true;
-}
-
-function handleUnskipNextTransfer() {
-  if (unskipNextTransfer()) {
-    showToast("Next transfer unskipped");
+    showToast("Could not unskip transfer");
   }
 }
 
@@ -404,7 +429,7 @@ function updateSkipButtons() {
     );
 
     settingsSkipButton.innerHTML = skipped
-      ? '<span class="material-symbols-outlined">skip_next</span> Skipped'
+      ? '<span class="material-symbols-outlined">close</span> Skipped'
       : '<span class="material-symbols-outlined">skip_next</span> Skip next transfer';
   }
 }
@@ -415,9 +440,12 @@ async function handleSkipNextTransfer() {
   }
 
   try {
-    await DataStore.skipNextTransfer();
+    const skipped =
+      await DataStore.skipNextTransfer();
 
-    showToast("Next transfer skipped");
+    if (skipped) {
+      showToast("Next transfer skipped");
+    }
   } catch (err) {
     console.error(
       "Could not skip transfer:",
@@ -540,24 +568,25 @@ function wireEvents() {
       handleSkipNextTransfer
     );
 
-  // IMPORTANT:
-  // Unskip is dynamically created by ensureUnskipButton().
-  // Event delegation means this keeps working even if the
-  // button is recreated during a render.
+  // Event delegation also works with the static unskip button
+  // in the current dashboard markup.
   document
     .getElementById("quickSettingsPanel")
-    .addEventListener("click", (e) => {
-      const button =
-        e.target.closest(
-          "#qsUnskipNextTransfer"
-        );
+    .addEventListener(
+      "click",
+      (e) => {
+        const button =
+          e.target.closest(
+            "#qsUnskipNextTransfer"
+          );
 
-      if (!button) {
-        return;
+        if (!button) {
+          return;
+        }
+
+        handleUnskipNextTransfer();
       }
-
-      handleUnskipNextTransfer();
-    });
+    );
 
   document
     .getElementById("infoBtn")
@@ -593,23 +622,31 @@ function wireDummyButtons() {
   // TODO: this one should switch the view to an
   // email-reset flow, verification code first —
   // leaving as a dummy for now.
-  dummy("btnChangeEmail", "Change email");
+  dummy(
+    "btnChangeEmail",
+    "Change email"
+  );
+
   dummy(
     "btnChangeTransferTime",
     "Change transfer time"
   );
+
   dummy(
     "btnPauseChallenge",
     "Pause challenge"
   );
+
   dummy(
     "btnRestartChallenge",
     "Restart challenge"
   );
+
   dummy(
     "btnEndChallenge",
     "End challenge"
   );
+
   dummy(
     "btnWipeData",
     "Wipe stored AWS data"
