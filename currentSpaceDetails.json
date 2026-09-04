@@ -1,0 +1,14 @@
+{
+    "savingsGoalUid": "2c6a81e0-e1c4-42dd-ba67-f8cf723f6f3c",
+    "name": "\ud83e\ude99 1p Challenge",
+    "target": {
+        "currency": "GBP",
+        "minorUnits": 66795
+    },
+    "totalSaved": {
+        "currency": "GBP",
+        "minorUnits": 240
+    },
+    "savedPercentage": 0,
+    "state": "ACTIVE"
+}

@@ -123,25 +123,24 @@ function render() {
   const progressPct = Math.min(100, (savedSoFar / goal) * 100);
   const rawTodayStatus = d.get().transferStatus;
   const skipActive = d.isTransferSkipped();
-  const today = getTransferForDate(getDateOffset(0));
-  const next = getTransferForDate(getDateOffset(1));
+
+  // Transfer amounts are calculated from the challenge day number.
+  // amounts.json now stores cumulative totals, so it is no longer used
+  // to determine today's or tomorrow's individual transfer amount.
+  const todayTransfer = d.day() / 100;
+  const nextTransfer = (d.day() + 1) / 100;
 
   document.getElementById("dayNum").textContent = d.day();
   document.getElementById("quoteText").textContent = `"${currentQuote}"`;
 
   document.getElementById("todayTransfer").textContent =
-    today.amount !== null
-      ? today.amount.toFixed(2)
-      : d.todayTransfer().toFixed(2);
+    todayTransfer.toFixed(2);
 
   document.getElementById("nextTransfer").textContent =
-    next.amount !== null
-      ? next.amount.toFixed(2)
-      : "0.00";
+    nextTransfer.toFixed(2);
 
   document.getElementById("savedSoFar").textContent =
     savedSoFar.toFixed(2);
-
   document.getElementById("goalAmount").textContent =
     goal.toFixed(2);
 
@@ -179,7 +178,6 @@ function render() {
     `${progressPct.toFixed(1)}%`;
 
   const remaining = Math.max(0, goal - savedSoFar);
-
   document.getElementById("remaining").textContent =
     `£${remaining.toFixed(2)} to go`;
 
@@ -191,48 +189,34 @@ function render() {
 
   for (let i = 0; i < CELLS; i++) {
     const cell = document.createElement("div");
-
     cell.className =
       "penny-cell" + (i < filledCount ? " filled" : "");
-
     track.appendChild(cell);
   }
 
-  // Raw daily transfer line graph. The completed flag is ignored.
+  // Cumulative line graph. The line uses every data point.
   renderLineGraph(getAmountHistory());
 
   // Chart view toggle radios.
   const view = d.chartView();
 
-  document
-    .querySelectorAll('input[name="chartView"]')
-    .forEach((r) => {
-      r.checked = r.value === view;
-    });
+  document.querySelectorAll('input[name="chartView"]').forEach((r) => {
+    r.checked = r.value === view;
+  });
 
   document
     .getElementById("labelBar")
-    .classList.toggle(
-      "active-label",
-      view === "progress_bar"
-    );
+    .classList.toggle("active-label", view === "progress_bar");
 
   document
     .getElementById("labelLine")
-    .classList.toggle(
-      "active-label",
-      view === "line_graph"
-    );
+    .classList.toggle("active-label", view === "line_graph");
 
   document.getElementById("barView").style.display =
-    view === "progress_bar"
-      ? "block"
-      : "none";
+    view === "progress_bar" ? "block" : "none";
 
   document.getElementById("lineView").style.display =
-    view === "line_graph"
-      ? "block"
-      : "none";
+    view === "line_graph" ? "block" : "none";
 
   renderSettingsTab();
   updateSkipButtons();
@@ -297,6 +281,41 @@ function renderLineGraph(history) {
     })
     .join(" ");
 
+  // Keep the line continuous through every data point, but only
+  // show circular markers at roughly one-fifth of the total days.
+  const pointInterval = Math.max(
+    1,
+    Math.ceil(history.length / 5)
+  );
+
+  const markers = history
+    .map((p, i) => {
+      const isIntervalPoint =
+        i % pointInterval === 0;
+
+      const isFinalPoint =
+        i === history.length - 1;
+
+      if (!isIntervalPoint && !isFinalPoint) {
+        return "";
+      }
+
+      const { x, y } = getPoint(p, i);
+
+      return `
+        <circle
+          cx="${x}"
+          cy="${y}"
+          r="4"
+          fill="#2dd6b8"
+          stroke="#2dd6b8"
+        >
+          <title>${p.dateString}: £${p.amount.toFixed(2)}</title>
+        </circle>
+      `;
+    })
+    .join("");
+
   svg.innerHTML = `
     <polyline
       points="${points}"
@@ -305,29 +324,12 @@ function renderLineGraph(history) {
       stroke-width="2.5"
     />
 
-    ${history
-      .map((p, i) => {
-        const { x, y } = getPoint(p, i);
-
-        return `
-          <circle
-            cx="${x}"
-            cy="${y}"
-            r="4"
-            fill="#2dd6b8"
-            stroke="#2dd6b8"
-          >
-            <title>${p.dateString}: £${p.amount.toFixed(2)}</title>
-          </circle>
-        `;
-      })
-      .join("")}
+    ${markers}
   `;
 }
 
 function ensureUnskipButton() {
-  let button =
-    document.getElementById("qsUnskipNextTransfer");
+  let button = document.getElementById("qsUnskipNextTransfer");
 
   if (button) {
     return button;
@@ -361,18 +363,13 @@ function ensureUnskipButton() {
 
 async function handleUnskipNextTransfer() {
   try {
-    const unskipped =
-      await DataStore.unskipNextTransfer();
+    const unskipped = await DataStore.unskipNextTransfer();
 
     if (unskipped) {
       showToast("Next transfer unskipped");
     }
   } catch (err) {
-    console.error(
-      "Could not unskip transfer:",
-      err
-    );
-
+    console.error("Could not unskip transfer:", err);
     showToast("Could not unskip transfer");
   }
 }
@@ -440,11 +437,18 @@ async function handleSkipNextTransfer() {
   }
 
   try {
-    const skipped =
-      await DataStore.skipNextTransfer();
+    // Start the skip immediately. DataStore notifies the UI during
+    // this operation, which can cause the Settings button to be
+    // re-rendered. Show the confirmation toast before awaiting the
+    // persistence work so it is not delayed by that update.
+    const skipPromise = DataStore.skipNextTransfer();
 
-    if (skipped) {
-      showToast("Next transfer skipped");
+    showToast("Next transfer skipped");
+
+    const skipped = await skipPromise;
+
+    if (!skipped) {
+      return;
     }
   } catch (err) {
     console.error(
@@ -572,21 +576,18 @@ function wireEvents() {
   // in the current dashboard markup.
   document
     .getElementById("quickSettingsPanel")
-    .addEventListener(
-      "click",
-      (e) => {
-        const button =
-          e.target.closest(
-            "#qsUnskipNextTransfer"
-          );
+    .addEventListener("click", (e) => {
+      const button =
+        e.target.closest(
+          "#qsUnskipNextTransfer"
+        );
 
-        if (!button) {
-          return;
-        }
-
-        handleUnskipNextTransfer();
+      if (!button) {
+        return;
       }
-    );
+
+      handleUnskipNextTransfer();
+    });
 
   document
     .getElementById("infoBtn")
@@ -622,31 +623,23 @@ function wireDummyButtons() {
   // TODO: this one should switch the view to an
   // email-reset flow, verification code first —
   // leaving as a dummy for now.
-  dummy(
-    "btnChangeEmail",
-    "Change email"
-  );
-
+  dummy("btnChangeEmail", "Change email");
   dummy(
     "btnChangeTransferTime",
     "Change transfer time"
   );
-
   dummy(
     "btnPauseChallenge",
     "Pause challenge"
   );
-
   dummy(
     "btnRestartChallenge",
     "Restart challenge"
   );
-
   dummy(
     "btnEndChallenge",
     "End challenge"
   );
-
   dummy(
     "btnWipeData",
     "Wipe stored AWS data"

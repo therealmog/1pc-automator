@@ -47,6 +47,9 @@
           <div class="stat-label">Saved so far</div>
           <div class="saved-values">
             £<span id="savedSoFar">0.00</span> <span class="goal">/ £<span id="goalAmount">0.00</span></span>
+            <button class="teal-btn refresh-btn" id="btnRefresh" type="button">
+              <span class="material-symbols-outlined">refresh</span> Refresh
+            </button>
           </div>
 
           <div id="barView">
@@ -123,9 +126,6 @@
         <button class="qs-btn" id="qsSendProgress"><span class="material-symbols-outlined">send</span> Send progress email</button>
         <button class="qs-btn" id="qsChangeTime"><span class="material-symbols-outlined">schedule</span> Change transfer time</button>
         <button class="qs-btn" id="qsSkipNextTransfer"><span class="material-symbols-outlined">skip_next</span> Skip next transfer</button>
-        <button class="qs-btn" id="qsUnskipNextTransfer" style="display:none;">
-            <span class="material-symbols-outlined">undo</span> Unskip next transfer
-        </button>
       </div>
 
       <div class="danger-zone hidden" id="dangerZonePanel">

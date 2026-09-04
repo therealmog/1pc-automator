@@ -102,18 +102,14 @@ header {
   transition: background .15s, border-color .15s;
 }
 
-.tab-btn:hover, .icon-btn:hover {
-  border-color: var(--muted);
-}
+.tab-btn:hover, .icon-btn:hover { border-color: var(--muted); }
 
 .tab-btn.active {
   background: #2a2a2a;
   border-color: #4a4a4a;
 }
 
-.icon-btn {
-  padding: 10px 12px;
-}
+.icon-btn { padding: 10px 12px; }
 
 .day-badge {
   font-family: 'JetBrains Mono', monospace;
@@ -122,9 +118,7 @@ header {
   white-space: nowrap;
 }
 
-.day-badge b {
-  color: var(--text);
-}
+.day-badge b { color: var(--text); }
 
 /* ---------- layout ---------- */
 main {
@@ -133,9 +127,7 @@ main {
 }
 
 @media (max-width: 760px) {
-  main {
-    grid-template-columns: 1fr;
-  }
+  main { grid-template-columns: 1fr; }
 }
 
 .content {
@@ -198,22 +190,10 @@ main {
   font-size: 14px;
 }
 
-.status-line.completed {
-  color: var(--green);
-}
-
-.status-line.not_completed {
-  color: var(--red);
-}
-
-.status-line.scheduled {
-  color: var(--teal);
-}
-
-.status-line.skipped {
-  color: #2b64f4;
-}
-
+.status-line.completed { color: var(--green); }
+.status-line.not_completed { color: var(--red); }
+.status-line.scheduled { color: var(--teal); }
+.status-line.skipped { color: #2b64f4; }
 .status-line .due {
   color: var(--muted);
   font-size: 12px;
@@ -230,6 +210,14 @@ main {
 .saved-values .goal {
   color: var(--muted);
   font-weight: 500;
+}
+
+/* ---------- refresh button ---------- */
+.teal-btn.refresh-btn {
+  margin-left: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  vertical-align: middle;
 }
 
 /* ---------- penny progress bar ---------- */
@@ -278,13 +266,9 @@ main {
   color: var(--muted);
 }
 
-.chart-toggle input {
-  accent-color: var(--teal);
-}
+.chart-toggle input { accent-color: var(--teal); }
 
-.chart-toggle label.active-label {
-  color: var(--text);
-}
+.chart-toggle label.active-label { color: var(--text); }
 
 .line-graph {
   margin-top: 18px;
@@ -325,22 +309,13 @@ main {
   display: none !important;
 }
 
-.qs-btn:hover {
-  filter: brightness(1.12);
-}
-
-.qs-btn:active {
-  filter: brightness(0.95);
-}
+.qs-btn:hover { filter: brightness(1.12); }
+.qs-btn:active { filter: brightness(0.95); }
 
 /* ---------- settings tab ---------- */
-.settings-form {
-  display: none;
-}
+.settings-form { display: none; }
 
-.settings-form.visible {
-  display: block;
-}
+.settings-form.visible { display: block; }
 
 .settings-row {
   display: grid;
@@ -386,24 +361,14 @@ main {
   transition: filter .15s, transform .1s;
 }
 
-.teal-btn:hover {
-  filter: brightness(1.12);
-}
+.teal-btn:hover { filter: brightness(1.12); }
 
 .teal-btn:active {
   filter: brightness(.95);
   transform: translateY(1px);
 }
 
-/* ---------- disabled skip button ---------- */
-/*
- * Once the next transfer has been skipped, the Settings
- * button is disabled by JavaScript.
- *
- * These rules deliberately cover normal, hover, and active
- * states so the disabled button remains visibly grey and
- * cannot regain the teal hover appearance.
- */
+/* Visually indicate that the next transfer has already been skipped. */
 .teal-btn:disabled,
 .teal-btn:disabled:hover,
 .teal-btn:disabled:active,
@@ -500,13 +465,9 @@ main {
   }
 }
 
-.progress-view {
-  display: block;
-}
+.progress-view { display: block; }
 
-.progress-view.hidden {
-  display: none;
-}
+.progress-view.hidden { display: none; }
 
 .status-pill {
   font-size: 12px;

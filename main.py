@@ -15,6 +15,7 @@ from random import choice
 
 class Automator:
     def __init__(self):
+        config.config()
         # Loading the token
         self.TOKEN = os.getenv("STARLING_TOKEN")
         if self.TOKEN == None:
@@ -22,29 +23,78 @@ class Automator:
         else:
             print("Token loaded successfully.")
 
+        self.accountUID = os.getenv("ACCOUNT_UID")
+        self.spaceUID = os.getenv("SPACE_UID")
+
         self.checkSettings()
+        
 
-        self.baseURL = "https://api.starlingbank.com/api/v2/account/d5c61173-126f-444f-89f8-1d5882d4f3be"    # ID is the Easy Saver spaces ID.
-        self.transferURL = self.baseURL + "/savings-goals/2c6a81e0-e1c4-42dd-ba67-f8cf723f6f3c/add-money/"    # Need to add a UUID onto the end.
+        self.baseURL = f"https://api.starlingbank.com/api/v2/account/{self.accountUID}"    # ID is the user ID.
+        self.transferURL = self.baseURL + f"/savings-goals/{self.spaceUID}/add-money/"    # Need to add a UUID onto the end.
 
-        response = requests.get(self.baseURL+"/balance",headers={"Authorization" : f"Bearer {self.TOKEN}"})
-        if response.status_code == 200:
-            print(response.json())
+        self.getCurrentBalance()
         
 
         self.todaysDate = datetime.date.today().strftime("%d/%m/%Y")
+        self.tomorrowsDate = (datetime.date.today() + datetime.timedelta(days=1)).strftime("%d/%m/%Y")
 
-        # Getting amounts details from JSON file.
-        self.amountsDict = {}
-        with open("amounts.json","r") as f:
-            self.amountsDict = json.load(f)
-
-        amount = self.amountsDict[self.todaysDate]["amount"]
-        if self.checkCompleted():
-            print(f"Today's money (£{amount/100}) has already been transferred.")
+        # Get today's amount to add
+        if datetime.datetime.today() > datetime.datetime.strptime(self.getSetting("endDate"),"%d/%m/%Y"):
+            print("Challenge already completed. Congratulations!")
+        elif datetime.datetime.today() < datetime.datetime.strptime(self.getSetting("endDate"),"%d/%m/%Y"):
+            print("Your challenge has not started yet.")
         else:
-            self.amount = amount
-            self.makeTransfer(amount)
+            amount = (datetime.datetime.today() - datetime.datetime.strptime(self.getSetting("startDate"),"%d/%m/%Y")).days + 1
+
+            # The current space balance goes into the amountsDict json file.
+
+            self.amountsDict = {}
+            with open("amounts.json","r") as f:
+                self.amountsDict = json.load(f)
+
+            if self.checkCompleted():
+                print(f"Today's money (£{amount/100}) has already been transferred.")
+            else:
+                self.amount = amount
+                self.makeTransfer(amount)
+
+        
+
+    def getCurrentBalance(self):
+        url = self.baseURL + f"/savings-goals/{self.spaceUID}"
+        response = requests.get(url,headers={"Authorization" : f"Bearer {self.TOKEN}"})
+        if response.status_code == 200:
+            print("Current balance obtained.")
+            balance = response.json()["totalSaved"]["minorUnits"]
+
+            # Update saved value.
+            self.changeSetting("currentAmount",balance)
+
+
+    def changeSetting(self,settingToChange,newValue):
+        settingsDict = {}
+        with open("settings.json", "r") as f:
+            settingsDict = json.load(f)
+
+        if settingToChange in settingsDict:
+            settingsDict[settingToChange] = newValue
+
+            # Overwrite current settings.json
+            with open("settings.json","w") as f:
+                json.dump(settingsDict,f,indent=4)
+        else:
+            print(f"Setting '{settingToChange}' not found.")
+
+    def getSetting(self,settingName):
+        settingsDict = {}
+        with open("settings.json", "r") as f:
+            settingsDict = json.load(f)
+
+        if settingName in settingsDict:
+            return settingsDict[settingName]
+        else:
+            print(f"Setting '{settingName}' not found.")
+
 
     def checkSettings(self):
         # Getting settings from JSON file.
@@ -82,7 +132,7 @@ class Automator:
                     "currency" : "GBP",
                     "minorUnits" : int(amount)
                 },
-                "reference" : f"1pC Automator • £{self.getTotal(amount)/100} saved so far."
+                "reference" : f"1pC Automator • £{(self.getSetting("currentAmount")+self.amount)/100} saved so far."
             }
         accessURL = self.transferURL + str(uuid.uuid4())    # unique ID for the transfer
 
@@ -100,8 +150,12 @@ class Automator:
             print(response.text)
 
     def setCompleted(self):
-        # Sets JSON completed value to "true"
+        newAmount = self.getSetting("currentAmount")+self.amount
+
+        # Sets JSON completed value to "true" and set value in amountsDict to new amount
         # Use previously accessed amountsDict
+
+        self.amountsDict[self.todaysDate]["amount"] = newAmount
         self.amountsDict[self.todaysDate]["completed"] = "true"
 
         # Write the new value
@@ -111,10 +165,17 @@ class Automator:
         # Send completion email
         self.sendEmail()
 
+        # Change next transfer date
+        
+        self.changeSetting("nextTransferDate",self.tomorrowsDate)
+        self.changeSetting("currentAmount",newAmount)
+
+        
+        
+
     def getTotal(self,day):
         # Returns total saved up to a particular day in pence
-        total = (0.5 * day * (2*1 + (day-1)*(1)))
-        return total
+        return self.getSetting("currentAmount")
 
     def getPercentage(self,day):
         total = self.getTotal(day)
@@ -215,7 +276,7 @@ class Automator:
         html = template.format(
             date=self.todaysDate,
             amount=str(self.amount/100),
-            total=str(self.getTotal(self.amount)/100),
+            total=str((self.getSetting("currentAmount") +self.amount)/100),
             progressPercent=str(self.getPercentage(self.amount)),
             day=self.amount,
             padding="&nbsp;&zwnj;" * 30,

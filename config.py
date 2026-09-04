@@ -15,6 +15,7 @@ def config():
         settingInput = input(f"\nEnter the number of the action you would like to do.\nAlternatively, type 'exit' to exit: ").lower()
         try:
             settingInput = int(settingInput)
+            actionComplete = True
 
         except ValueError:
             if settingInput == "exit":
