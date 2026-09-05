@@ -102,14 +102,18 @@ header {
   transition: background .15s, border-color .15s;
 }
 
-.tab-btn:hover, .icon-btn:hover { border-color: var(--muted); }
+.tab-btn:hover, .icon-btn:hover {
+  border-color: var(--muted);
+}
 
 .tab-btn.active {
   background: #2a2a2a;
   border-color: #4a4a4a;
 }
 
-.icon-btn { padding: 10px 12px; }
+.icon-btn {
+  padding: 10px 12px;
+}
 
 .day-badge {
   font-family: 'JetBrains Mono', monospace;
@@ -118,7 +122,9 @@ header {
   white-space: nowrap;
 }
 
-.day-badge b { color: var(--text); }
+.day-badge b {
+  color: var(--text);
+}
 
 /* ---------- layout ---------- */
 main {
@@ -127,7 +133,9 @@ main {
 }
 
 @media (max-width: 760px) {
-  main { grid-template-columns: 1fr; }
+  main {
+    grid-template-columns: 1fr;
+  }
 }
 
 .content {
@@ -190,10 +198,22 @@ main {
   font-size: 14px;
 }
 
-.status-line.completed { color: var(--green); }
-.status-line.not_completed { color: var(--red); }
-.status-line.scheduled { color: var(--teal); }
-.status-line.skipped { color: #2b64f4; }
+.status-line.completed {
+  color: var(--green);
+}
+
+.status-line.not_completed {
+  color: var(--red);
+}
+
+.status-line.scheduled {
+  color: var(--teal);
+}
+
+.status-line.skipped {
+  color: #2b64f4;
+}
+
 .status-line .due {
   color: var(--muted);
   font-size: 12px;
@@ -212,10 +232,9 @@ main {
   font-weight: 500;
 }
 
-/* ---------- refresh button ---------- */
-.teal-btn.refresh-btn {
-  margin-left: 8px;
-  padding: 5px 8px;
+.refresh-btn {
+  margin-left: 10px;
+  padding: 8px 11px;
   font-size: 12px;
   vertical-align: middle;
 }
@@ -266,9 +285,13 @@ main {
   color: var(--muted);
 }
 
-.chart-toggle input { accent-color: var(--teal); }
+.chart-toggle input {
+  accent-color: var(--teal);
+}
 
-.chart-toggle label.active-label { color: var(--text); }
+.chart-toggle label.active-label {
+  color: var(--text);
+}
 
 .line-graph {
   margin-top: 18px;
@@ -309,13 +332,22 @@ main {
   display: none !important;
 }
 
-.qs-btn:hover { filter: brightness(1.12); }
-.qs-btn:active { filter: brightness(0.95); }
+.qs-btn:hover {
+  filter: brightness(1.12);
+}
+
+.qs-btn:active {
+  filter: brightness(0.95);
+}
 
 /* ---------- settings tab ---------- */
-.settings-form { display: none; }
+.settings-form {
+  display: none;
+}
 
-.settings-form.visible { display: block; }
+.settings-form.visible {
+  display: block;
+}
 
 .settings-row {
   display: grid;
@@ -361,27 +393,13 @@ main {
   transition: filter .15s, transform .1s;
 }
 
-.teal-btn:hover { filter: brightness(1.12); }
+.teal-btn:hover {
+  filter: brightness(1.12);
+}
 
 .teal-btn:active {
   filter: brightness(.95);
   transform: translateY(1px);
-}
-
-/* Visually indicate that the next transfer has already been skipped. */
-.teal-btn:disabled,
-.teal-btn:disabled:hover,
-.teal-btn:disabled:active,
-.teal-btn.skipped-btn:disabled,
-.teal-btn.skipped-btn:disabled:hover,
-.teal-btn.skipped-btn:disabled:active {
-  background: #555b5a !important;
-  color: #b8bfbd !important;
-  cursor: not-allowed;
-  opacity: 1;
-  filter: none !important;
-  transform: none !important;
-  transition: none;
 }
 
 .teal-btn.full {
@@ -403,7 +421,7 @@ main {
   direction: ltr;
   -webkit-font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: 'liga';
+  font-feature-settings: "liga";
 }
 
 /* ---------- settings sidebar / danger zone ---------- */
@@ -465,9 +483,13 @@ main {
   }
 }
 
-.progress-view { display: block; }
+.progress-view {
+  display: block;
+}
 
-.progress-view.hidden { display: none; }
+.progress-view.hidden {
+  display: none;
+}
 
 .status-pill {
   font-size: 12px;
@@ -475,6 +497,7 @@ main {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* ---------- standard confirmation toast ---------- */
 .confirm-toast {
   position: fixed;
   bottom: 24px;
@@ -489,9 +512,160 @@ main {
   opacity: 0;
   pointer-events: none;
   transition: opacity .2s, transform .2s;
+  z-index: 1000;
 }
 
 .confirm-toast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+/* ---------- change email / transfer time toast ---------- */
+.email-toast,
+.time-toast {
+  width: min(420px, calc(100vw - 32px));
+  box-sizing: border-box;
+  background: #171717;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 18px 50px rgba(0, .45);
+  font-weight: 400;
+}
+
+.email-toast-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.email-toast-title {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.email-toast-subtitle {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.email-toast-close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+}
+
+.email-toast-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, .06);
+}
+
+.email-toast-close .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.email-toast-form label {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+
+.email-toast-form input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #101010;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px 13px;
+  font-family: inherit;
+  font-size: 16px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.email-toast-form input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(45, 214, 184, .12);
+}
+
+.email-toast-form input[type="time"] {
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.email-toast-error {
+  min-height: 17px;
+  color: #f16b5c;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.email-toast-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.email-toast-cancel,
+.email-toast-save {
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.email-toast-cancel {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.email-toast-cancel:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, .04);
+}
+
+.email-toast-save {
+  background: var(--teal);
+  color: #06231e;
+  border: 1px solid var(--teal);
+}
+
+.email-toast-save:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 480px) {
+  .email-toast,
+  .time-toast {
+    bottom: 16px;
+    padding: 17px;
+  }
+
+  .email-toast-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
 }

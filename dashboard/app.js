@@ -33,14 +33,187 @@ const QUOTES = [
 ];
 
 let currentQuote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+let toastTimer = null;
 
 function showToast(msg) {
   const t = document.getElementById("toast");
   if (!t) return;
 
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+
+  t.className = "confirm-toast";
   t.textContent = msg;
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 1800);
+
+  toastTimer = setTimeout(() => {
+    t.classList.remove("show");
+  }, 1800);
+}
+
+function showEmailChangeToast() {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  const currentEmail = DataStore.settings().email || "";
+
+  t.className = "confirm-toast email-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">Change email</div>
+        <div class="email-toast-subtitle">Enter the address for your progress updates.</div>
+      </div>
+      <button class="email-toast-close" id="emailToastClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <form id="emailChangeForm" class="email-toast-form">
+      <label for="emailToastInput">New email address</label>
+      <input
+        id="emailToastInput"
+        name="email"
+        type="email"
+        value="${currentEmail.replace(/"/g, "&quot;")}"
+        placeholder="you@example.com"
+        autocomplete="email"
+        required
+      >
+      <div class="email-toast-error" id="emailToastError" aria-live="polite"></div>
+      <div class="email-toast-actions">
+        <button class="email-toast-cancel" id="emailToastCancel" type="button">Cancel</button>
+        <button class="email-toast-save" type="submit">Save email</button>
+      </div>
+    </form>
+  `;
+
+  t.classList.add("show");
+
+  const input = document.getElementById("emailToastInput");
+  const form = document.getElementById("emailChangeForm");
+  const error = document.getElementById("emailToastError");
+  const closeButton = document.getElementById("emailToastClose");
+  const cancelButton = document.getElementById("emailToastCancel");
+
+  const close = () => {
+    t.classList.remove("show");
+  };
+
+  closeButton.addEventListener("click", close);
+  cancelButton.addEventListener("click", close);
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const email = input.value.trim();
+
+    if (!input.checkValidity()) {
+      error.textContent = "Please enter a valid email address.";
+      input.focus();
+      return;
+    }
+
+    DataStore.updateSettings({ email });
+    close();
+    showToast("Email updated");
+  });
+
+  input.addEventListener("input", () => {
+    error.textContent = "";
+  });
+
+  input.focus();
+  input.select();
+}
+
+function showTransferTimeToast() {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  const currentTime =
+    DataStore.settings().transferTime ||
+    DataStore.transferDueTime() ||
+    "01:00";
+
+  t.className = "confirm-toast time-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">Change transfer time</div>
+        <div class="email-toast-subtitle">Choose the time your daily transfer should be made.</div>
+      </div>
+      <button class="email-toast-close" id="timeToastClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <form id="transferTimeForm" class="email-toast-form">
+      <label for="transferTimeInput">Daily transfer time</label>
+      <input
+        id="transferTimeInput"
+        name="transferTime"
+        type="time"
+        value="${currentTime}"
+        step="60"
+        required
+      >
+      <div class="email-toast-error" id="transferTimeError" aria-live="polite"></div>
+      <div class="email-toast-actions">
+        <button class="email-toast-cancel" id="timeToastCancel" type="button">Cancel</button>
+        <button class="email-toast-save" type="submit">Save time</button>
+      </div>
+    </form>
+  `;
+
+  t.classList.add("show");
+
+  const input = document.getElementById("transferTimeInput");
+  const form = document.getElementById("transferTimeForm");
+  const error = document.getElementById("transferTimeError");
+  const closeButton = document.getElementById("timeToastClose");
+  const cancelButton = document.getElementById("timeToastCancel");
+
+  const close = () => {
+    t.classList.remove("show");
+  };
+
+  closeButton.addEventListener("click", close);
+  cancelButton.addEventListener("click", close);
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const transferTime = input.value;
+
+    if (!input.checkValidity() || !/^\d{2}:\d{2}$/.test(transferTime)) {
+      error.textContent = "Please enter a valid time.";
+      input.focus();
+      return;
+    }
+
+    DataStore.updateSettings({
+      transferTime
+    });
+
+    close();
+    showToast("Transfer time updated");
+  });
+
+  input.addEventListener("input", () => {
+    error.textContent = "";
+  });
+
+  input.focus();
 }
 
 function getSavedSoFar() {
@@ -102,6 +275,29 @@ function getTransferForDate(date) {
   };
 }
 
+function getDueText(date, transferTime) {
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  const today = getDateOffset(0);
+  const tomorrow = getDateOffset(1);
+  const inTwoDays = getDateOffset(2);
+
+  if (target.getTime() === today.getTime()) {
+    return `due today at ${transferTime}`;
+  }
+
+  if (target.getTime() === tomorrow.getTime()) {
+    return `due tomorrow at ${transferTime}`;
+  }
+
+  if (target.getTime() === inTwoDays.getTime()) {
+    return `due in 2 days at ${transferTime}`;
+  }
+
+  return `due on ${DataStore.formatDateDDMMYYYY(target)} at ${transferTime}`;
+}
+
 function renderTransferStatus(element, status, dueText) {
   element.className = "status-line " + status;
 
@@ -123,30 +319,32 @@ function render() {
   const progressPct = Math.min(100, (savedSoFar / goal) * 100);
   const rawTodayStatus = d.get().transferStatus;
   const skipActive = d.isTransferSkipped();
-
-  // Transfer amounts are calculated from the challenge day number.
-  // amounts.json now stores cumulative totals, so it is no longer used
-  // to determine today's or tomorrow's individual transfer amount.
-  const todayTransfer = d.day() / 100;
-  const nextTransfer = (d.day() + 1) / 100;
+  const today = getTransferForDate(getDateOffset(0));
+  const next = getTransferForDate(getDateOffset(1));
+  const settingsFile = d.get().settingsFile || {};
+  const configuredNextTransferDate = settingsFile.nextTransferDate
+    ? d.parseDateDDMMYYYY(settingsFile.nextTransferDate)
+    : null;
+  const tomorrow = getDateOffset(1);
+  const nextTransferDate =
+    configuredNextTransferDate && configuredNextTransferDate > getDateOffset(0)
+      ? configuredNextTransferDate
+      : tomorrow;
 
   document.getElementById("dayNum").textContent = d.day();
   document.getElementById("quoteText").textContent = `"${currentQuote}"`;
 
   document.getElementById("todayTransfer").textContent =
-    todayTransfer.toFixed(2);
+    today.amount !== null ? today.amount.toFixed(2) : d.todayTransfer().toFixed(2);
 
   document.getElementById("nextTransfer").textContent =
-    nextTransfer.toFixed(2);
+    next.amount !== null ? next.amount.toFixed(2) : "0.00";
 
   document.getElementById("savedSoFar").textContent =
     savedSoFar.toFixed(2);
   document.getElementById("goalAmount").textContent =
     goal.toFixed(2);
 
-  // A skip applies to today's transfer if it has not completed yet.
-  // If today's transfer has completed, the skip applies to tomorrow's
-  // transfer instead. This keeps today's historical status intact.
   const todayStatus =
     skipActive && rawTodayStatus !== "completed"
       ? "skipped"
@@ -161,19 +359,21 @@ function render() {
     document.getElementById("statusLine"),
     todayStatus,
     todayStatus === "skipped"
-      ? `due tomorrow at ${d.transferDueTime()}`
-      : `due today at ${d.transferDueTime()}`
+      ? getDueText(getDateOffset(1), d.transferDueTime())
+      : getDueText(getDateOffset(0), d.transferDueTime())
   );
+
+  const nextDueDate =
+    skipActive && rawTodayStatus === "completed"
+      ? getDateOffset(2)
+      : nextTransferDate;
 
   renderTransferStatus(
     document.getElementById("nextStatusLine"),
     nextStatus,
-    nextStatus === "skipped"
-      ? `due in 2 days at ${d.transferDueTime()}`
-      : `due tomorrow at ${d.transferDueTime()}`
+    getDueText(nextDueDate, d.transferDueTime())
   );
 
-  // Progress bar.
   document.getElementById("progressPct").textContent =
     `${progressPct.toFixed(1)}%`;
 
@@ -194,10 +394,8 @@ function render() {
     track.appendChild(cell);
   }
 
-  // Cumulative line graph. The line uses every data point.
   renderLineGraph(getAmountHistory());
 
-  // Chart view toggle radios.
   const view = d.chartView();
 
   document.querySelectorAll('input[name="chartView"]').forEach((r) => {
@@ -234,8 +432,6 @@ function renderSettingsTab() {
   document.getElementById("settingsEndDateValue").textContent =
     `(ends ${s.endDate || "—"})`;
 
-  // Use the actual nextTransferDate from settings.json/DataStore.
-  // This is important because skipping a transfer moves this date forward.
   const nextDate = s.nextTransferDate || "—";
 
   document.getElementById("settingsNextTransferValue").textContent =
@@ -281,41 +477,6 @@ function renderLineGraph(history) {
     })
     .join(" ");
 
-  // Keep the line continuous through every data point, but only
-  // show circular markers at roughly one-fifth of the total days.
-  const pointInterval = Math.max(
-    1,
-    Math.ceil(history.length / 5)
-  );
-
-  const markers = history
-    .map((p, i) => {
-      const isIntervalPoint =
-        i % pointInterval === 0;
-
-      const isFinalPoint =
-        i === history.length - 1;
-
-      if (!isIntervalPoint && !isFinalPoint) {
-        return "";
-      }
-
-      const { x, y } = getPoint(p, i);
-
-      return `
-        <circle
-          cx="${x}"
-          cy="${y}"
-          r="4"
-          fill="#2dd6b8"
-          stroke="#2dd6b8"
-        >
-          <title>${p.dateString}: £${p.amount.toFixed(2)}</title>
-        </circle>
-      `;
-    })
-    .join("");
-
   svg.innerHTML = `
     <polyline
       points="${points}"
@@ -324,7 +485,23 @@ function renderLineGraph(history) {
       stroke-width="2.5"
     />
 
-    ${markers}
+    ${history
+      .map((p, i) => {
+        const { x, y } = getPoint(p, i);
+
+        return `
+          <circle
+            cx="${x}"
+            cy="${y}"
+            r="4"
+            fill="#2dd6b8"
+            stroke="#2dd6b8"
+          >
+            <title>${p.dateString}: £${p.amount.toFixed(2)}</title>
+          </circle>
+        `;
+      })
+      .join("")}
   `;
 }
 
@@ -349,9 +526,6 @@ function ensureUnskipButton() {
 
   button.innerHTML =
     '<span class="material-symbols-outlined">undo</span> Unskip next transfer';
-
-  // No direct listener here. The button is dynamically created,
-  // so wireEvents() uses event delegation instead.
 
   skipButton.parentNode.insertBefore(
     button,
@@ -387,9 +561,6 @@ function updateSkipButtons() {
   const skipped =
     DataStore.isTransferSkipped();
 
-  // Quick Settings:
-  // explicitly control display rather than relying on the
-  // native hidden attribute, because .qs-btn has display:block.
   if (skipButton) {
     skipButton.style.display =
       skipped ? "none" : "block";
@@ -410,8 +581,6 @@ function updateSkipButtons() {
     );
   }
 
-  // Settings panel:
-  // disable and grey the Skip button while skipped.
   if (settingsSkipButton) {
     settingsSkipButton.disabled = skipped;
 
@@ -437,10 +606,6 @@ async function handleSkipNextTransfer() {
   }
 
   try {
-    // Start the skip immediately. DataStore notifies the UI during
-    // this operation, which can cause the Settings button to be
-    // re-rendered. Show the confirmation toast before awaiting the
-    // persistence work so it is not delayed by that update.
     const skipPromise = DataStore.skipNextTransfer();
 
     showToast("Next transfer skipped");
@@ -537,14 +702,14 @@ function wireEvents() {
     .getElementById("qsChangeEmail")
     .addEventListener(
       "click",
-      () => switchTab("settings")
+      showEmailChangeToast
     );
 
   document
     .getElementById("qsChangeTime")
     .addEventListener(
       "click",
-      () => switchTab("settings")
+      showTransferTimeToast
     );
 
   document
@@ -552,17 +717,22 @@ function wireEvents() {
     .addEventListener(
       "click",
       () => {
-        // Hook this up to your real email-sending endpoint
-        // when you have one.
         showToast("Progress email sent");
       }
     );
 
   document
-    .getElementById("qsSkipNextTransfer")
+    .getElementById("btnChangeTransferTime")
     .addEventListener(
       "click",
-      handleSkipNextTransfer
+      showTransferTimeToast
+    );
+
+  document
+    .getElementById("btnChangeEmail")
+    .addEventListener(
+      "click",
+      showEmailChangeToast
     );
 
   document
@@ -572,8 +742,6 @@ function wireEvents() {
       handleSkipNextTransfer
     );
 
-  // Event delegation also works with the static unskip button
-  // in the current dashboard markup.
   document
     .getElementById("quickSettingsPanel")
     .addEventListener("click", (e) => {
@@ -620,26 +788,26 @@ function wireDummyButtons() {
     );
   };
 
-  // TODO: this one should switch the view to an
-  // email-reset flow, verification code first —
-  // leaving as a dummy for now.
-  dummy("btnChangeEmail", "Change email");
   dummy(
-    "btnChangeTransferTime",
+    "btnChangeTransferTimeDummy",
     "Change transfer time"
   );
+
   dummy(
     "btnPauseChallenge",
     "Pause challenge"
   );
+
   dummy(
     "btnRestartChallenge",
     "Restart challenge"
   );
+
   dummy(
     "btnEndChallenge",
     "End challenge"
   );
+
   dummy(
     "btnWipeData",
     "Wipe stored AWS data"
