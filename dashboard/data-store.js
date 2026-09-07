@@ -4,7 +4,8 @@
  * Single source of truth for every variable the dashboard needs.
  *
  * Loads:
- *   - data.json
+ *   - fallback.json (local fallback values, used only when the
+ *     primary data sources cannot be retrieved)
  *   - ../amounts.json
  *   - ../settings.json
  *
@@ -25,7 +26,7 @@ const DataStore = (() => {
   let state = null;
   const listeners = [];
 
-  async function load(path = "data.json") {
+  async function load(path = "fallback.json") {
     const res = await fetch(path, { cache: "no-store" });
 
     if (!res.ok) {

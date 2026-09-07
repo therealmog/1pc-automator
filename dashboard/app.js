@@ -958,12 +958,40 @@ function wireEvents() {
     .getElementById("infoBtn")
     .addEventListener(
       "click",
-      () => {
-        alert(
-          "1p Challenge Automator: saves an extra 1p more each day, automatically transferred toward your goal."
-        );
-      }
+      openInfoModal
     );
+
+  const infoClose = document.getElementById("infoModalClose");
+  if (infoClose) {
+    infoClose.addEventListener("click", closeInfoModal);
+  }
+
+  const infoBackdrop = document.getElementById("infoModalBackdrop");
+  if (infoBackdrop) {
+    infoBackdrop.addEventListener("click", closeInfoModal);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeInfoModal();
+    }
+  });
+}
+
+function openInfoModal() {
+  const modal = document.getElementById("infoModal");
+  if (!modal) return;
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+  const content = modal.querySelector(".info-modal-content");
+  if (content) content.scrollTop = 0;
+}
+
+function closeInfoModal() {
+  const modal = document.getElementById("infoModal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
 }
 
 function wireDummyButtons() {
@@ -1012,7 +1040,7 @@ function wireDummyButtons() {
 }
 
 async function init() {
-  await DataStore.load("data.json");
+  await DataStore.load("fallback.json");
 
   DataStore.onChange(render);
 
