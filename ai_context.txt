@@ -1,0 +1,118 @@
+A consolidated project-context document covering the current local architecture, data model, UI behaviour, implementation
+constraints, and the intended AWS deployment direction.
+1. Project purpose
+The project is a self-hosted web dashboard called 1p Challenge Automator, built around the classic 1p-a-day savings
+challenge. Day 1 is £0.01, day 2 is £0.02, and so on. The dashboard shows progress, today's transfer, the next transfer,
+accumulated savings, and challenge/settings controls.
+The current priority is local/self-hosted development. The longer-term plan is for each user to deploy their own
+backend/application into their own AWS environment, rather than having one centrally hosted backend handling every
+user's financial data.
+2. Current project structure
+File
+Purpose
+dashboard.html
+style.css
+Main page structure. Loads style.css, data-store.js and app.js.
+Dashboard styling, responsive layout, controls, graph and toast/popup styling.
+data-store.js
+DataStore abstraction and single source of truth. Loads JSON data/settings and exposes state/update/save helpers.
+app.js
+Rendering, calculations, event handlers, graph, quotes, toasts, settings and challenge interactions.
+data.json
+../amounts.json
+Challenge/history data, including historical amounts and completion information.
+Amounts stored in pence plus completion status.
+../settings.json
+Settings/state: dates, transfer time, email, current amount, pause state, restart date, etc.
+3. Frontend loading and separation of concerns
+The HTML loads the stylesheet and then the JavaScript in this order:
+dashboard.html fi style.css
+dashboard.html fi data-store.js fi app.js
+app.js relies on DataStore being established by data-store.js. The intended separation is presentation in HTML/CSS, UI
+behaviour/rendering in app.js, state/persistence abstraction in DataStore, and eventually secure persistence/banking operations
+behind an AWS backend.
+4. Data model
+DataStore is the frontend single source of truth. Settings currently include fields such as:
+startDate — DD/MM/YYYY challenge start date
+endDate — challenge end date
+transferTime — daily transfer time
+nextTransferDate — configured next transfer date
+userEmail — progress-email address
+currentAmount — accumulated amount in pence
+challengePaused — pause flag
+restartDate — scheduled restart date when applicable
+Money is represented in pence in JSON/state and converted to pounds for display. The Saved so far figure comes from
+settings.json.currentAmount.
+5. Main progress UI
+The Progress view contains a random saving quote, Today's transfer, Next transfer, Saved so far, a progress bar, a line-graph
+alternative, and a radio toggle between the two graph views. A small Refresh control sits beside Saved so far.
+The line graph is generated from all history points, while markers are deliberately sparse. The intended interval is:
+const pointInterval = Math.max(2, Math.ceil(history.length / 8));
+A marker is shown at interval points and always on the final point. SVG native point tooltips show DD/MM/YYYY and £amount.
+Markers use r=4 and #2dd6b8; the graph line uses stroke-width 2.5.
+6. Transfer scheduling
+Today's transfer and Next transfer are separate cards. The configured nextTransferDate is read from settings, with a guard that
+moves a date which is today or already past forward to tomorrow. This fixed a previous issue where a scheduled transfer
+incorrectly appeared as today at 01:00.
+Due-date wording is dynamic: today, tomorrow, in 2 days, or on DD/MM/YYYY, with the configured transfer time where
+appropriate.
+7. Skip transfer
+Quick Settings provides Skip next transfer. It immediately shows a 'Next transfer skipped' toast, hides/disables the relevant skip
+action, shows a blue 'Skipped' status, and advances the next transfer date by one day. Unskip restores the original date and
+clears the skip state. Persistence is attempted through DataStore.
+8. Email and transfer-time popups
+Change email uses a custom toast containing title/subtitle, close, validated email input, error area, Cancel and Save email.
+Change transfer time uses the same visual pattern with a native input type="time" and HH:MM validation.
+9. Pause / restart challenge
+The pause state is represented by settings.json.challengePaused being true. A pause popup offers Until I restart the challenge
+or Restart on a specific date. The second option reveals a date form; the chosen date is stored in restartDate.
+While paused, the restart date becomes the next transfer shown on the main page, and the following day becomes the transfer
+after that. An indefinite pause has no restartDate.
+Settings status becomes Active (ends on ...), Paused (restarts on ...), or simply Paused. While paused, the Settings button
+becomes Restart challenge; restarting sets challengePaused to false and clears scheduled restart state as appropriate.
+10. Responsive/UI requirements
+On desktop, Today's transfer and Next transfer appear side-by-side; on smaller screens they collapse to one column. Mobile
+accessibility/layout has been explicitly considered. The 'Powered by Starling Bank API' attribution remains beneath the title on
+mobile, with Starling text in #51ffeb. Material Symbols are used for action icons.
+11. Current persistence abstraction
+DataStore.updateSettings(partial) merges the partial settings into in-memory state, notifies the UI and invokes save(). This
+abstraction is useful because app.js does not need to know whether persistence is local JSON, S3, or an API.
+12. Intended AWS architecture
+The long-term concept is:
+User browser fi static frontend fi user's AWS backend/API fi user's AWS storage/secrets/services fi Starling API
+The frontend should remain largely static and should not contain sensitive banking credentials. Dynamic operations should be
+mediated by backend code where authentication, authorization, persistence, or external API credentials are involved.
+13. S3 + Lambda direction
+The current JSON-file approach is expected to map naturally to S3. Backend/Lambda code can rewrite the relevant JSON data.
+A browser does not need a full page refresh when JSON changes: JavaScript can fetch current state and update the DOM
+dynamically.
+Two broad patterns have been discussed: (1) frontend JavaScript directly reads an appropriately authorized JSON object, or (2)
+frontend calls an API/Lambda endpoint which reads/updates S3 and returns current state. For private financial data, the second
+pattern is the safer conceptual boundary because the backend controls access to S3 and secrets.
+Lambda/backend responsibilities are expected to include controlled settings/state persistence, challenge calculations where
+appropriate, scheduled transfer operations, Starling API interaction, progress-email operations, and other actions that should not
+depend on trusted client-side JavaScript.
+14. Secrets and security boundary
+The Danger Zone already refers to wiping stored AWS data including details held in Secrets Manager. This establishes the
+intended direction that sensitive credentials belong server-side. The static frontend should never be treated as a secure secret
+store.
+15. AWS deployment model
+The distinctive deployment goal is one AWS environment per user. This avoids making the developer's infrastructure a central
+custodian of every user's banking credentials and savings data. The exact provisioning/deployment workflow has not yet been
+fixed.
+The exact choices for API Gateway, Lambda, S3 bucket/key structure, authentication/authorization, scheduling service, Starling
+credential lifecycle, and automated per-user provisioning remain open design decisions unless explicitly decided later.
+16. Development constraints and preferences
+• Preserve existing working JavaScript; avoid unnecessary reconstruction or reformatting.
+• Whenever a JavaScript file is changed, provide the entire updated JS file in the response, not snippets.
+• Keep one canonical copy of each project file; ignore filename suffixes such as (1), (2), or encoded equivalents and overwrite
+the canonical file.
+• Make minimal changes for requested features and avoid breaking unrelated behaviour.
+• Treat the current local JSON implementation as a development-stage persistence mechanism that can later be
+replaced/connected to AWS.
+17. Overall mental model
+Think of the application as four layers: HTML/CSS for presentation; app.js for interaction and rendering; DataStore for state and
+persistence abstraction; and the eventual AWS backend for secure persistence, scheduling, secrets and Starling integration.
+The goal is for the UI to update individual pieces of state dynamically without requiring a complete page reload.
+Scope note: This document records established project context and clearly labels AWS details that have not yet been finalized,
+rather than inventing an exact cloud topology.

@@ -276,6 +276,22 @@ const DataStore = (() => {
 
         state.day = dayNumber;
       }
+
+      if (settings.challengePaused !== undefined) {
+        state.settings = {
+          ...state.settings,
+          challengePaused:
+            settings.challengePaused === true ||
+            settings.challengePaused === "true",
+        };
+      }
+
+      if (settings.restartDate) {
+        state.settings = {
+          ...state.settings,
+          restartDate: settings.restartDate,
+        };
+      }
     } catch (err) {
       console.warn(
         `Could not load settings from ${path}:`,
@@ -722,6 +738,78 @@ const DataStore = (() => {
     });
   }
 
+  async function pauseChallenge(restartDate) {
+    state.settings = {
+      ...state.settings,
+      challengePaused: true,
+      restartDate: restartDate || "",
+    };
+
+    state.settingsFile = {
+      ...(state.settingsFile || {}),
+      challengePaused: "true",
+      restartDate: restartDate || "",
+    };
+
+    notify();
+    await save();
+
+    try {
+      const res = await fetch("../settings.json", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.settingsFile),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(
+        "Could not write pause state to ../settings.json.",
+        e
+      );
+    }
+
+    return true;
+  }
+
+  async function restartChallenge() {
+    state.settings = {
+      ...state.settings,
+      challengePaused: false,
+      restartDate: "",
+    };
+
+    state.settingsFile = {
+      ...(state.settingsFile || {}),
+      challengePaused: "false",
+      restartDate: "",
+    };
+
+    notify();
+    await save();
+
+    try {
+      const res = await fetch("../settings.json", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.settingsFile),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(
+        "Could not write restart state to ../settings.json.",
+        e
+      );
+    }
+
+    return true;
+  }
+
   async function save() {
     try {
       sessionStorage.setItem(
@@ -746,6 +834,9 @@ const DataStore = (() => {
 
     markTransferCompleted,
     setChartView,
+
+    pauseChallenge,
+    restartChallenge,
 
     formatDateDDMMYYYY,
     parseDateDDMMYYYY,

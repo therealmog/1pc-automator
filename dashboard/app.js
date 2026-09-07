@@ -262,6 +262,91 @@ function showTransferTimeToast() {
   input.focus();
 }
 
+function showPauseToast() {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  t.className = "confirm-toast email-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">Pause challenge</div>
+        <div class="email-toast-subtitle">When would you like to pause?</div>
+      </div>
+      <button class="email-toast-close" id="pauseToastClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="email-toast-actions">
+      <button class="email-toast-cancel" id="pauseToastIndefinite" type="button">Until I restart the challenge</button>
+      <button class="email-toast-save" id="pauseToastRevealDate" type="button">Restart on a specific date</button>
+    </div>
+    <div class="email-toast-error" id="pauseToastError" aria-live="polite"></div>
+    <div id="pauseDateForm" class="email-toast-form" style="display:none;">
+      <label for="pauseDateInput">Restart date</label>
+      <input id="pauseDateInput" name="restartDate" type="date" required>
+      <div class="email-toast-error" id="pauseDateError" aria-live="polite"></div>
+      <div class="email-toast-actions">
+        <button class="email-toast-cancel" id="pauseDateCancel" type="button">Cancel</button>
+        <button class="email-toast-save" id="pauseDateConfirm" type="button">Confirm</button>
+      </div>
+    </div>
+  `;
+
+  t.classList.add("show");
+
+  const close = () => { t.classList.remove("show"); };
+
+  document.getElementById("pauseToastClose").addEventListener("click", close);
+
+  document.getElementById("pauseToastIndefinite").addEventListener("click", async () => {
+    close();
+    await DataStore.pauseChallenge();
+    showToast("Challenge paused");
+  });
+
+  document.getElementById("pauseToastRevealDate").addEventListener("click", () => {
+    document.getElementById("pauseDateForm").style.display = "block";
+    document.getElementById("pauseDateInput").focus();
+  });
+
+  document.getElementById("pauseDateCancel").addEventListener("click", close);
+
+  document.getElementById("pauseDateConfirm").addEventListener("click", async () => {
+    const dateInput = document.getElementById("pauseDateInput");
+    const error = document.getElementById("pauseDateError");
+    const dateValue = dateInput.value;
+
+    if (!dateValue) {
+      error.textContent = "Please select a restart date.";
+      return;
+    }
+
+    const selectedDate = new Date(dateValue + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate <= today) {
+      error.textContent = "Please select a future date.";
+      return;
+    }
+
+    const formattedDate = DataStore.formatDateDDMMYYYY(selectedDate);
+    close();
+    await DataStore.pauseChallenge(formattedDate);
+    showToast("Challenge paused");
+  });
+
+  document.getElementById("pauseDateInput").addEventListener("input", () => {
+    document.getElementById("pauseDateError").textContent = "";
+  });
+}
+
 function getSavedSoFar() {
   const settingsFile = DataStore.get().settingsFile || {};
   const currentAmountPence = Number(settingsFile.currentAmount);
@@ -379,6 +464,10 @@ function renderTransferStatus(element, status, dueText) {
     element.innerHTML = "Completed!";
   } else if (status === "skipped") {
     element.innerHTML = `Skipped <span class="due">(${dueText})</span>`;
+  } else if (status === "paused") {
+    element.innerHTML = dueText
+      ? `Paused <span class="due">(${dueText})</span>`
+      : "Paused";
   } else if (status === "scheduled") {
     element.innerHTML = `Scheduled <span class="due">(${dueText})</span>`;
   } else {
@@ -401,14 +490,31 @@ function render() {
     : null;
   const challengeNotStarted =
     !!startDate && startDate > getDateOffset(0);
+  const challengePaused =
+    settingsFile.challengePaused === true ||
+    settingsFile.challengePaused === "true";
+  const restartDateStr = settingsFile.restartDate || "";
   const configuredNextTransferDate = settingsFile.nextTransferDate
     ? d.parseDateDDMMYYYY(settingsFile.nextTransferDate)
     : null;
   const tomorrow = getDateOffset(1);
-  const nextTransferDate =
-    configuredNextTransferDate && configuredNextTransferDate > getDateOffset(0)
-      ? configuredNextTransferDate
-      : tomorrow;
+
+  let nextTransferDate;
+
+  if (challengePaused && restartDateStr) {
+    const restartDateObj = d.parseDateDDMMYYYY(restartDateStr);
+    nextTransferDate =
+      restartDateObj > getDateOffset(0)
+        ? restartDateObj
+        : getDateOffset(1);
+  } else if (
+    configuredNextTransferDate &&
+    configuredNextTransferDate > getDateOffset(0)
+  ) {
+    nextTransferDate = configuredNextTransferDate;
+  } else {
+    nextTransferDate = tomorrow;
+  }
 
   const dayBadge = document.querySelector(".day-badge");
   if (dayBadge) {
@@ -431,7 +537,28 @@ function render() {
   let firstTransferText;
   let nextTransferText;
 
-  if (challengeNotStarted) {
+  if (challengePaused && !restartDateStr) {
+    const challengeDay = getChallengeDayNumber();
+    firstTransferText = challengeDay
+      ? (challengeDay / 100).toFixed(2)
+      : today.amount !== null
+      ? today.amount.toFixed(2)
+      : d.todayTransfer().toFixed(2);
+    nextTransferText = "—";
+  } else if (challengePaused && restartDateStr) {
+    const restartDateObj = d.parseDateDDMMYYYY(restartDateStr);
+    const challengeDay = startDate
+      ? Math.round((restartDateObj - startDate) / (24 * 60 * 60 * 1000)) + 1
+      : null;
+    firstTransferText = challengeDay && challengeDay >= 1
+      ? (challengeDay / 100).toFixed(2)
+      : today.amount !== null
+      ? today.amount.toFixed(2)
+      : d.todayTransfer().toFixed(2);
+    nextTransferText = challengeDay && challengeDay >= 1
+      ? (challengeDay / 100).toFixed(2)
+      : "0.01";
+  } else if (challengeNotStarted) {
     firstTransferText = "0.01";
     nextTransferText = "0.02";
   } else {
@@ -467,6 +594,8 @@ function render() {
   const nextStatus =
     skipActive && rawTodayStatus === "completed"
       ? "skipped"
+      : challengePaused
+      ? "paused"
       : "scheduled";
 
   renderTransferStatus(
@@ -481,7 +610,9 @@ function render() {
   );
 
   const nextDueDate =
-    challengeNotStarted && startDate
+    challengePaused && restartDateStr
+      ? d.parseDateDDMMYYYY(restartDateStr)
+      : challengeNotStarted && startDate
       ? (() => {
           const dayAfterStart = new Date(startDate);
           dayAfterStart.setDate(dayAfterStart.getDate() + 1);
@@ -494,7 +625,9 @@ function render() {
   renderTransferStatus(
     document.getElementById("nextStatusLine"),
     nextStatus,
-    getDueText(nextDueDate, d.transferDueTime())
+    challengePaused && !restartDateStr
+      ? ""
+      : getDueText(nextDueDate, d.transferDueTime())
   );
 
   document.getElementById("progressPct").textContent =
@@ -552,15 +685,39 @@ function renderSettingsTab() {
   document.getElementById("settingsTransferTimeValue").textContent =
     s.transferTime || "--:--";
 
-  document.getElementById("settingsEndDateValue").textContent =
-    `(ends ${s.endDate || "—"})`;
+  const settingsFile = DataStore.get().settingsFile || {};
+  const challengePaused =
+    settingsFile.challengePaused === true ||
+    settingsFile.challengePaused === "true";
+  const restartDateStr = settingsFile.restartDate || "";
+
+  const statusEl = document.getElementById("settingsStatusValue");
+  if (statusEl) {
+    if (challengePaused) {
+      statusEl.innerHTML = restartDateStr
+        ? `Paused <span class="muted-sub" id="settingsEndDateValue">(restarts on ${restartDateStr})</span>`
+        : `Paused`;
+    } else {
+      statusEl.innerHTML = `Active <span class="muted-sub" id="settingsEndDateValue">(ends on ${s.endDate || "—"})</span>`;
+    }
+  }
+
+  const pauseBtn = document.getElementById("btnPauseChallenge");
+  if (pauseBtn) {
+    if (challengePaused) {
+      pauseBtn.innerHTML =
+        '<span class="material-symbols-outlined">restart_alt</span> Restart challenge';
+    } else {
+      pauseBtn.innerHTML =
+        '<span class="material-symbols-outlined">pause</span> Pause challenge';
+    }
+  }
 
   const nextDate = s.nextTransferDate || "—";
 
   document.getElementById("settingsNextTransferValue").textContent =
     `${nextDate}, ${s.transferTime || "--:--"}`;
 
-  const settingsFile = DataStore.get().settingsFile || {};
   const startDate = settingsFile.startDate
     ? DataStore.parseDateDDMMYYYY(settingsFile.startDate)
     : null;
@@ -775,23 +932,18 @@ function updateSkipButtons() {
     );
   }
 
-  if (settingsSkipButton) {
-    settingsSkipButton.disabled = skipped;
+if (settingsSkipButton) {
+     settingsSkipButton.disabled = false;
 
-    settingsSkipButton.setAttribute(
-      "aria-disabled",
-      skipped ? "true" : "false"
-    );
+     settingsSkipButton.setAttribute(
+       "aria-disabled",
+       skipped ? "true" : "false"
+     );
 
-    settingsSkipButton.classList.toggle(
-      "skipped-btn",
-      skipped
-    );
-
-    settingsSkipButton.innerHTML = skipped
-      ? '<span class="material-symbols-outlined">close</span> Skipped'
-      : '<span class="material-symbols-outlined">skip_next</span> Skip next transfer';
-  }
+     settingsSkipButton.innerHTML = skipped
+       ? '<span class="material-symbols-outlined">undo</span> Unskip next transfer'
+       : '<span class="material-symbols-outlined">skip_next</span> Skip next transfer';
+   }
 
   const showSkipNext = challengeNotStarted
     ? true
@@ -815,10 +967,10 @@ function updateSkipButtons() {
       : '<span class="material-symbols-outlined">skip_next</span> Skip today\'s transfer';
   }
 
-  if (settingsSkipButton) {
-    settingsSkipButton.style.visibility =
-      showSkipNext ? "visible" : "hidden";
-  }
+if (settingsSkipButton) {
+     settingsSkipButton.style.visibility =
+       skipped ? "visible" : (showSkipNext ? "visible" : "hidden");
+   }
 }
 
 async function handleSkipNextTransfer() {
@@ -919,6 +1071,12 @@ function switchTab(tab) {
       "hidden",
       tab !== "settings"
     );
+
+  if (tab === "progress") {
+    document.title = "Dashboard | 1pC Automator";
+  } else if (tab === "settings") {
+    document.title = "Settings | 1pC Automator";
+  }
 }
 
 function wireEvents() {
@@ -1002,6 +1160,13 @@ function wireEvents() {
     );
 
   document
+    .getElementById("btnRefresh")
+    .addEventListener(
+      "click",
+      () => showToast("Balance refresh complete")
+    );
+
+  document
     .getElementById("btnChangeTransferTime")
     .addEventListener(
       "click",
@@ -1019,7 +1184,13 @@ function wireEvents() {
     .getElementById("btnSkipNextTransfer")
     .addEventListener(
       "click",
-      handleSkipNextTransfer
+      () => {
+        if (DataStore.isTransferSkipped()) {
+          handleUnskipNextTransfer();
+        } else {
+          handleSkipNextTransfer();
+        }
+      }
     );
 
   document
@@ -1061,6 +1232,36 @@ function wireEvents() {
     infoBackdrop.addEventListener("click", closeInfoModal);
   }
 
+  document.getElementById("btnPauseChallenge").addEventListener("click", () => {
+     const settingsFile = DataStore.get().settingsFile || {};
+     const challengePaused =
+       settingsFile.challengePaused === true ||
+       settingsFile.challengePaused === "true";
+
+if (challengePaused) {
+        DataStore.restartChallenge();
+        showToast("Challenge restarted");
+      } else {
+        const sFile = DataStore.get().settingsFile || {};
+        const sStartDate = sFile.startDate
+          ? DataStore.parseDateDDMMYYYY(sFile.startDate)
+          : null;
+        const sToday = getDateOffset(0);
+        const sNotStarted = !!sStartDate && sStartDate > sToday;
+
+        if (sNotStarted) {
+          showToast("Your challenge has not started yet!");
+        } else {
+          showPauseToast();
+        }
+      }
+   });
+
+  document.getElementById("btnRestartChallenge").addEventListener("click", async () => {
+     await DataStore.restartChallenge();
+     showToast("Challenge restarted");
+   });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeInfoModal();
@@ -1075,6 +1276,7 @@ function openInfoModal() {
   modal.setAttribute("aria-hidden", "false");
   const content = modal.querySelector(".info-modal-content");
   if (content) content.scrollTop = 0;
+  document.title = "Info | 1pC Automator";
 }
 
 function closeInfoModal() {
@@ -1082,6 +1284,15 @@ function closeInfoModal() {
   if (!modal) return;
   modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
+  const activeTab =
+    document.getElementById("tabSettings").classList.contains("active")
+      ? "settings"
+      : "progress";
+  if (activeTab === "settings") {
+    document.title = "Settings | 1pC Automator";
+  } else {
+    document.title = "Dashboard | 1pC Automator";
+  }
 }
 
 function wireDummyButtons() {
@@ -1106,16 +1317,6 @@ function wireDummyButtons() {
   dummy(
     "btnChangeTransferTimeDummy",
     "Change transfer time"
-  );
-
-  dummy(
-    "btnPauseChallenge",
-    "Pause challenge"
-  );
-
-  dummy(
-    "btnRestartChallenge",
-    "Restart challenge"
   );
 
   dummy(
