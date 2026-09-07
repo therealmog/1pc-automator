@@ -292,6 +292,15 @@ const DataStore = (() => {
           restartDate: settings.restartDate,
         };
       }
+
+      if (settings.challengeEnded !== undefined) {
+        state.settings = {
+          ...state.settings,
+          challengeEnded:
+            settings.challengeEnded === true ||
+            settings.challengeEnded === "true",
+        };
+      }
     } catch (err) {
       console.warn(
         `Could not load settings from ${path}:`,
@@ -810,6 +819,80 @@ const DataStore = (() => {
     return true;
   }
 
+  async function endChallenge() {
+    state.settings = {
+      ...state.settings,
+      challengePaused: true,
+      challengeEnded: true,
+      restartDate: "",
+    };
+
+    state.settingsFile = {
+      ...(state.settingsFile || {}),
+      challengePaused: "true",
+      challengeEnded: "true",
+      restartDate: "",
+    };
+
+    notify();
+    await save();
+
+    try {
+      const res = await fetch("../settings.json", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.settingsFile),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(
+        "Could not write end state to ../settings.json.",
+        e
+      );
+    }
+
+    return true;
+  }
+
+  async function wipeAWSData() {
+    state.settings = {
+      ...state.settings,
+      challengePaused: "false",
+      challengeEnded: "false",
+      restartDate: "",
+      email: "",
+      transferTime: "01:00",
+    };
+
+    state.settingsFile = { ...state.settings };
+    state.amounts = {};
+
+    notify();
+    await save();
+
+    try {
+      const res = await fetch("../settings.json", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.settingsFile),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(
+        "Could not write wipe state to ../settings.json.",
+        e
+      );
+    }
+
+    return true;
+  }
+
   async function save() {
     try {
       sessionStorage.setItem(
@@ -837,6 +920,8 @@ const DataStore = (() => {
 
     pauseChallenge,
     restartChallenge,
+    endChallenge,
+    wipeAWSData,
 
     formatDateDDMMYYYY,
     parseDateDDMMYYYY,

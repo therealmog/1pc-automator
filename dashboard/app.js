@@ -300,7 +300,13 @@ function showPauseToast() {
 
   t.classList.add("show");
 
-  const close = () => { t.classList.remove("show"); };
+const close = (removeBlur = false) => {
+    t.classList.remove("show");
+    if (removeBlur) {
+      const w = document.querySelector(".wrap");
+      if (w) w.classList.remove("blurred");
+    }
+  };
 
   document.getElementById("pauseToastClose").addEventListener("click", close);
 
@@ -344,6 +350,232 @@ function showPauseToast() {
 
   document.getElementById("pauseDateInput").addEventListener("input", () => {
     document.getElementById("pauseDateError").textContent = "";
+  });
+}
+
+function showRestartConfirmToast() {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  const wrap = document.querySelector(".wrap");
+  if (wrap) wrap.classList.add("blurred");
+
+  t.className = "confirm-toast email-toast danger-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">Restart challenge</div>
+        <div class="email-toast-subtitle">Are you sure? This will reset all of your progress.</div>
+      </div>
+      <button class="email-toast-close" id="restartConfirmClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="email-toast-actions">
+      <button class="email-toast-cancel" id="restartConfirmCancel" type="button">Cancel</button>
+      <button class="email-toast-save" id="restartConfirmYes" type="button">Confirm</button>
+    </div>
+  `;
+
+  t.classList.add("show");
+
+const close = (removeBlur = false) => {
+    t.classList.remove("show", "danger-toast");
+    if (removeBlur) {
+      const w = document.querySelector(".wrap");
+      if (w) w.classList.remove("blurred");
+    }
+  };
+
+  document.getElementById("restartConfirmClose").addEventListener("click", () => close(true));
+  document.getElementById("restartConfirmCancel").addEventListener("click", () => close(true));
+  document.getElementById("restartConfirmYes").addEventListener("click", () => {
+    close();
+    showRestartPhraseToast();
+  });
+}
+
+function showRestartPhraseToast() {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  t.className = "confirm-toast email-toast danger-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">Confirm restart</div>
+        <div class="email-toast-subtitle">Type the phrase below to confirm.</div>
+      </div>
+      <button class="email-toast-close" id="phraseToastClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <p class="uncopiable" id="restartPhrase">I understand that doing this will reset all of my progress and start the challenge again. This action is irreversible.</p>
+    <div class="email-toast-form">
+      <label for="restartPhraseInput">Enter the phrase</label>
+      <input id="restartPhraseInput" name="phrase" type="text" autocomplete="off" required>
+      <div class="email-toast-error" id="restartPhraseError" aria-live="polite"></div>
+      <div class="email-toast-actions">
+        <button class="email-toast-cancel" id="phraseToastCancel" type="button">Cancel</button>
+        <button class="email-toast-save" id="phraseToastConfirm" type="button">Confirm</button>
+      </div>
+    </div>
+  `;
+
+  t.classList.add("show");
+
+  const close = () => {
+    t.classList.remove("show");
+    setTimeout(() => {
+      t.className = "confirm-toast";
+      const w = document.querySelector(".wrap");
+      if (w) w.classList.remove("blurred");
+    }, 250);
+  };
+
+  document.getElementById("phraseToastClose").addEventListener("click", close);
+  document.getElementById("phraseToastCancel").addEventListener("click", close);
+
+  document.getElementById("phraseToastConfirm").addEventListener("click", async () => {
+    const input = document.getElementById("restartPhraseInput");
+    const error = document.getElementById("restartPhraseError");
+    const value = input.value.trim();
+    const expected = "I understand that doing this will reset all of my progress and start the challenge again. This action is irreversible.";
+
+    if (value !== expected) {
+      error.textContent = "Phrase does not match.";
+      return;
+    }
+
+    close();
+    await DataStore.restartChallenge();
+    showToast("Challenge restarted");
+  });
+
+  document.getElementById("restartPhraseInput").addEventListener("input", () => {
+    document.getElementById("restartPhraseError").textContent = "";
+  });
+}
+
+function showDangerConfirmToast(title, subtitle, phrase, onConfirm) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  const wrap = document.querySelector(".wrap");
+  if (wrap) wrap.classList.add("blurred");
+
+  t.className = "confirm-toast email-toast danger-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">${title}</div>
+        <div class="email-toast-subtitle">${subtitle}</div>
+      </div>
+      <button class="email-toast-close" id="dangerConfirmClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="email-toast-actions">
+      <button class="email-toast-cancel" id="dangerConfirmCancel" type="button">Cancel</button>
+      <button class="email-toast-save" id="dangerConfirmYes" type="button">Confirm</button>
+    </div>
+  `;
+
+  t.classList.add("show");
+
+  const close = (removeBlur = false) => {
+    t.classList.remove("show", "danger-toast");
+    if (removeBlur) {
+      const w = document.querySelector(".wrap");
+      if (w) w.classList.remove("blurred");
+    }
+  };
+
+  document.getElementById("dangerConfirmClose").addEventListener("click", () => close(true));
+  document.getElementById("dangerConfirmCancel").addEventListener("click", () => close(true));
+  document.getElementById("dangerConfirmYes").addEventListener("click", () => {
+    close();
+    showDangerPhraseToast(phrase, onConfirm);
+  });
+}
+
+function showDangerPhraseToast(phrase, onConfirm) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  t.className = "confirm-toast email-toast danger-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">Confirm action</div>
+        <div class="email-toast-subtitle">Type the phrase below to confirm.</div>
+      </div>
+      <button class="email-toast-close" id="phraseToastClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <p class="uncopiable" id="dangerPhrase">${phrase}</p>
+    <div class="email-toast-form">
+      <label for="dangerPhraseInput">Enter the phrase</label>
+      <input id="dangerPhraseInput" name="phrase" type="text" autocomplete="off" required>
+      <div class="email-toast-error" id="dangerPhraseError" aria-live="polite"></div>
+      <div class="email-toast-actions">
+        <button class="email-toast-cancel" id="phraseToastCancel" type="button">Cancel</button>
+        <button class="email-toast-save" id="phraseToastConfirm" type="button">Confirm</button>
+      </div>
+    </div>
+  `;
+
+  t.classList.add("show");
+
+  const close = (removeBlur = false) => {
+    t.classList.remove("show", "danger-toast");
+    if (removeBlur) {
+      const w = document.querySelector(".wrap");
+      if (w) w.classList.remove("blurred");
+    }
+  };
+
+  document.getElementById("phraseToastClose").addEventListener("click", () => close(true));
+  document.getElementById("phraseToastCancel").addEventListener("click", () => close(true));
+
+  document.getElementById("phraseToastConfirm").addEventListener("click", async () => {
+    const input = document.getElementById("dangerPhraseInput");
+    const error = document.getElementById("dangerPhraseError");
+    const value = input.value.trim();
+
+    if (value !== phrase) {
+      error.textContent = "Phrase does not match.";
+      return;
+    }
+
+    close();
+    await onConfirm();
+    showToast("Action completed");
+  });
+
+  document.getElementById("dangerPhraseInput").addEventListener("input", () => {
+    document.getElementById("dangerPhraseError").textContent = "";
   });
 }
 
@@ -1257,12 +1489,29 @@ if (challengePaused) {
       }
    });
 
-  document.getElementById("btnRestartChallenge").addEventListener("click", async () => {
-     await DataStore.restartChallenge();
-     showToast("Challenge restarted");
-   });
+document.getElementById("btnRestartChallenge").addEventListener("click", () => {
+       showRestartConfirmToast();
+     });
 
-  document.addEventListener("keydown", (e) => {
+   document.getElementById("btnEndChallenge").addEventListener("click", () => {
+       showDangerConfirmToast(
+         "End challenge",
+         "Are you sure? This will stop all future transfers.",
+         "I understand that ending the challenge will stop all future transfers. This action is irreversible.",
+         () => DataStore.endChallenge()
+       );
+     });
+
+   document.getElementById("btnWipeData").addEventListener("click", () => {
+       showDangerConfirmToast(
+         "Wipe AWS data",
+         "Are you sure? This removes all stored personal data including Secrets Manager credentials.",
+         "I understand that wiping AWS data will remove all stored personal data including Secrets Manager credentials. This action is irreversible.",
+         () => DataStore.wipeAWSData()
+       );
+     });
+
+   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeInfoModal();
     }
@@ -1317,16 +1566,6 @@ function wireDummyButtons() {
   dummy(
     "btnChangeTransferTimeDummy",
     "Change transfer time"
-  );
-
-  dummy(
-    "btnEndChallenge",
-    "End challenge"
-  );
-
-  dummy(
-    "btnWipeData",
-    "Wipe stored AWS data"
   );
 }
 
