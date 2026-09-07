@@ -15,7 +15,7 @@ from random import choice
 
 class Automator:
     def __init__(self):
-        config.config()
+        # config.config()
         # Loading the token
         self.TOKEN = os.getenv("STARLING_TOKEN")
         if self.TOKEN == None:
@@ -41,7 +41,7 @@ class Automator:
         # Get today's amount to add
         if datetime.datetime.today() > datetime.datetime.strptime(self.getSetting("endDate"),"%d/%m/%Y"):
             print("Challenge already completed. Congratulations!")
-        elif datetime.datetime.today() < datetime.datetime.strptime(self.getSetting("endDate"),"%d/%m/%Y"):
+        elif datetime.datetime.today() < datetime.datetime.strptime(self.getSetting("startDate"),"%d/%m/%Y"):
             print("Your challenge has not started yet.")
         else:
             amount = (datetime.datetime.today() - datetime.datetime.strptime(self.getSetting("startDate"),"%d/%m/%Y")).days + 1

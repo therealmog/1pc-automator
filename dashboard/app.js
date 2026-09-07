@@ -262,6 +262,34 @@ function getDateOffset(days) {
   return date;
 }
 
+function getChallengeDayNumber() {
+  const settingsFile = DataStore.get().settingsFile || {};
+
+  if (!settingsFile.startDate) {
+    return null;
+  }
+
+  const startDate = DataStore.parseDateDDMMYYYY(
+    settingsFile.startDate
+  );
+
+  const today = getDateOffset(0);
+  const startMidnight = new Date(
+    startDate.getFullYear(),
+    startDate.getMonth(),
+    startDate.getDate()
+  );
+
+  if (startMidnight > today) {
+    return null;
+  }
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return (
+    Math.round((today - startMidnight) / msPerDay) + 1
+  );
+}
+
 function getTransferForDate(date) {
   const dateString = DataStore.formatDateDDMMYYYY(date);
   const entry = (DataStore.amounts() || {})[dateString];
@@ -322,6 +350,11 @@ function render() {
   const today = getTransferForDate(getDateOffset(0));
   const next = getTransferForDate(getDateOffset(1));
   const settingsFile = d.get().settingsFile || {};
+  const startDate = settingsFile.startDate
+    ? d.parseDateDDMMYYYY(settingsFile.startDate)
+    : null;
+  const challengeNotStarted =
+    !!startDate && startDate > getDateOffset(0);
   const configuredNextTransferDate = settingsFile.nextTransferDate
     ? d.parseDateDDMMYYYY(settingsFile.nextTransferDate)
     : null;
@@ -331,14 +364,49 @@ function render() {
       ? configuredNextTransferDate
       : tomorrow;
 
-  document.getElementById("dayNum").textContent = d.day();
+  const dayBadge = document.querySelector(".day-badge");
+  if (dayBadge) {
+    dayBadge.style.display = challengeNotStarted ? "none" : "";
+  }
+
+  if (!challengeNotStarted) {
+    document.getElementById("dayNum").textContent = d.day();
+  }
+
   document.getElementById("quoteText").textContent = `"${currentQuote}"`;
 
-  document.getElementById("todayTransfer").textContent =
-    today.amount !== null ? today.amount.toFixed(2) : d.todayTransfer().toFixed(2);
+  const todayCardLabel = document.querySelectorAll(".transfer-card .stat-label")[0];
+  if (todayCardLabel) {
+    todayCardLabel.textContent = challengeNotStarted
+      ? "First transfer"
+      : "Today's transfer";
+  }
 
-  document.getElementById("nextTransfer").textContent =
-    next.amount !== null ? next.amount.toFixed(2) : "0.00";
+  let firstTransferText;
+  let nextTransferText;
+
+  if (challengeNotStarted) {
+    firstTransferText = "0.01";
+    nextTransferText = "0.02";
+  } else {
+    const challengeDay = getChallengeDayNumber();
+
+    if (challengeDay && challengeDay >= 1) {
+      firstTransferText = (challengeDay / 100).toFixed(2);
+      nextTransferText = ((challengeDay + 1) / 100).toFixed(2);
+    } else {
+      firstTransferText = today.amount !== null
+        ? today.amount.toFixed(2)
+        : d.todayTransfer().toFixed(2);
+      nextTransferText = next.amount !== null
+        ? next.amount.toFixed(2)
+        : "0.00";
+    }
+  }
+
+  document.getElementById("todayTransfer").textContent = firstTransferText;
+
+  document.getElementById("nextTransfer").textContent = nextTransferText;
 
   document.getElementById("savedSoFar").textContent =
     savedSoFar.toFixed(2);
