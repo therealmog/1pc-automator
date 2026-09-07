@@ -42,6 +42,7 @@ const DataStore = (() => {
 
     // Restore any locally stored skip state.
     restoreLocalSkipState();
+    restoreLocalTodaySkipState();
 
     notify();
 
@@ -358,6 +359,98 @@ const DataStore = (() => {
   }
 
   /**
+   * Restore today's locally stored skip state.
+   */
+  function restoreLocalTodaySkipState() {
+    try {
+      const stored = sessionStorage.getItem(
+        "1p-dashboard-skip-today"
+      );
+
+      if (!stored) {
+        state.skipTodayActive = false;
+        state.skippedTodayDate = null;
+        return;
+      }
+
+      const local = JSON.parse(stored);
+      const todayKey = formatDateDDMMYYYY();
+
+      if (local.skipTodayActive && local.skippedTodayDate === todayKey) {
+        state.skipTodayActive = true;
+        state.skippedTodayDate = local.skippedTodayDate;
+        return;
+      }
+
+      sessionStorage.removeItem(
+        "1p-dashboard-skip-today"
+      );
+      state.skipTodayActive = false;
+      state.skippedTodayDate = null;
+    } catch (e) {
+      console.warn(
+        "Could not restore today-skipped state:",
+        e
+      );
+      state.skipTodayActive = false;
+      state.skippedTodayDate = null;
+    }
+  }
+
+  /**
+   * Skip today's transfer.
+   *
+   * Marks today's entry in amounts as skipped without
+   * advancing the nextTransferDate. The next transfer
+   * stays scheduled for tomorrow.
+   */
+  async function skipTodayTransfer() {
+    const todayKey = formatDateDDMMYYYY();
+
+    state.skipTodayActive = true;
+    state.skippedTodayDate = todayKey;
+
+    try {
+      sessionStorage.setItem(
+        "1p-dashboard-skip-today",
+        JSON.stringify({
+          skipTodayActive: true,
+          skippedTodayDate: todayKey,
+        })
+      );
+    } catch (e) {
+      console.warn(
+        "Could not persist today-skipped state:",
+        e
+      );
+    }
+
+    notify();
+    await save();
+
+    try {
+      const res = await fetch("../amounts.json", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(state.amounts || {}),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      console.warn(
+        "Could not write today's skip to ../amounts.json.",
+        e
+      );
+    }
+
+    return true;
+  }
+
+  /**
    * Skip the next transfer.
    *
    * Behaviour:
@@ -564,6 +657,9 @@ const DataStore = (() => {
   const isTransferSkipped = () =>
     !!get().skipActive;
 
+  const isTodayTransferSkipped = () =>
+    !!get().skipTodayActive;
+
   const savedSoFar = () =>
     get().savedSoFar;
 
@@ -660,10 +756,12 @@ const DataStore = (() => {
     cumulativeHistory,
     getCumulativeHistory,
 
-    // Skipped-transfer functionality.
-    skipNextTransfer,
-    unskipNextTransfer,
-    isTransferSkipped,
+  // Skipped-transfer functionality.
+  skipNextTransfer,
+  skipTodayTransfer,
+  unskipNextTransfer,
+  isTransferSkipped,
+  isTodayTransferSkipped,
 
     day,
     quote,

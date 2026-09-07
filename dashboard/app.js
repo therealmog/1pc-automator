@@ -504,6 +504,57 @@ function renderSettingsTab() {
 
   document.getElementById("settingsNextTransferValue").textContent =
     `${nextDate}, ${s.transferTime || "--:--"}`;
+
+  const settingsFile = DataStore.get().settingsFile || {};
+  const startDate = settingsFile.startDate
+    ? DataStore.parseDateDDMMYYYY(settingsFile.startDate)
+    : null;
+  const today = getDateOffset(0);
+  const challengeNotStarted = !!startDate && startDate > today;
+
+  const todayRow = document.getElementById("settingsTodayRow");
+  const todayValue = document.getElementById("settingsTodayTransferValue");
+  const todayStatusEl = document.getElementById("settingsTodayStatus");
+  const skipTodayButton = document.getElementById("btnSkipTodayTransfer");
+
+  if (challengeNotStarted) {
+    if (todayRow) todayRow.style.display = "none";
+  } else {
+    if (todayRow) todayRow.style.display = "";
+
+    const transferTime = s.transferTime || "--:--";
+    const todayDateString = DataStore.formatDateDDMMYYYY(today);
+
+    let todayAmountText;
+    const challengeDay = getChallengeDayNumber();
+    if (challengeDay && challengeDay >= 1) {
+      todayAmountText = `£${(challengeDay / 100).toFixed(2)}`;
+    } else {
+      const todayEntry = (DataStore.amounts() || {})[todayDateString];
+      const fallback = typeof todayEntry?.amount === "number"
+        ? (todayEntry.amount / 100).toFixed(2)
+        : DataStore.todayTransfer().toFixed(2);
+      todayAmountText = `£${fallback}`;
+    }
+
+    if (todayValue) {
+      todayValue.textContent = `${todayAmountText} (${todayDateString}, ${transferTime})`;
+    }
+
+    const completed = DataStore.isTransferCompleted(
+      (DataStore.amounts() || {})[todayDateString]
+    );
+
+    if (todayStatusEl) {
+      todayStatusEl.className =
+        "settings-status " + (completed ? "completed" : "not_completed");
+      todayStatusEl.textContent = completed ? "Completed" : "Not completed";
+    }
+
+    if (skipTodayButton) {
+      skipTodayButton.style.display = completed ? "none" : "";
+    }
+  }
 }
 
 function renderLineGraph(history) {
@@ -623,11 +674,31 @@ function updateSkipButtons() {
   const settingsSkipButton =
     document.getElementById("btnSkipNextTransfer");
 
+  const settingsSkipTodayButton =
+    document.getElementById("btnSkipTodayTransfer");
+
+  const settingsTodayRow =
+    document.getElementById("settingsTodayRow");
+
   const unskipButton =
     ensureUnskipButton();
 
   const skipped =
     DataStore.isTransferSkipped();
+
+  const todayDateString =
+    DataStore.formatDateDDMMYYYY(getDateOffset(0));
+
+  const todayEntry = (DataStore.amounts() || {})[todayDateString];
+  const todayCompleted =
+    DataStore.isTransferCompleted(todayEntry);
+
+  const challengeNotStarted = (() => {
+    const settingsFile = DataStore.get().settingsFile || {};
+    if (!settingsFile.startDate) return false;
+    const start = DataStore.parseDateDDMMYYYY(settingsFile.startDate);
+    return start > getDateOffset(0);
+  })();
 
   if (skipButton) {
     skipButton.style.display =
@@ -666,6 +737,33 @@ function updateSkipButtons() {
       ? '<span class="material-symbols-outlined">close</span> Skipped'
       : '<span class="material-symbols-outlined">skip_next</span> Skip next transfer';
   }
+
+  const showSkipNext = challengeNotStarted
+    ? true
+    : todayCompleted;
+  const showSkipToday = !challengeNotStarted && !todayCompleted;
+
+  if (settingsTodayRow) {
+    settingsTodayRow.style.display = challengeNotStarted ? "none" : "";
+  }
+
+  if (settingsSkipTodayButton) {
+    settingsSkipTodayButton.style.display = showSkipToday ? "" : "none";
+    settingsSkipTodayButton.disabled = skipped;
+    settingsSkipTodayButton.setAttribute(
+      "aria-disabled",
+      skipped ? "true" : "false"
+    );
+    settingsSkipTodayButton.classList.toggle("skipped-btn", skipped);
+    settingsSkipTodayButton.innerHTML = skipped
+      ? '<span class="material-symbols-outlined">close</span> Skipped'
+      : '<span class="material-symbols-outlined">skip_next</span> Skip today\'s transfer';
+  }
+
+  if (settingsSkipButton) {
+    settingsSkipButton.style.visibility =
+      showSkipNext ? "visible" : "hidden";
+  }
 }
 
 async function handleSkipNextTransfer() {
@@ -690,6 +788,23 @@ async function handleSkipNextTransfer() {
     );
 
     showToast("Could not skip transfer");
+  }
+}
+
+async function handleSkipTodayTransfer() {
+  if (DataStore.isTodayTransferSkipped()) {
+    return;
+  }
+
+  try {
+    await DataStore.skipTodayTransfer();
+    showToast("Today's transfer skipped");
+  } catch (err) {
+    console.error(
+      "Could not skip today's transfer:",
+      err
+    );
+    showToast("Could not skip today's transfer");
   }
 }
 
@@ -781,6 +896,13 @@ function wireEvents() {
     );
 
   document
+    .getElementById("qsSkipNextTransfer")
+    .addEventListener(
+      "click",
+      handleSkipNextTransfer
+    );
+
+  document
     .getElementById("qsSendProgress")
     .addEventListener(
       "click",
@@ -808,6 +930,13 @@ function wireEvents() {
     .addEventListener(
       "click",
       handleSkipNextTransfer
+    );
+
+  document
+    .getElementById("btnSkipTodayTransfer")
+    .addEventListener(
+      "click",
+      handleSkipTodayTransfer
     );
 
   document

@@ -369,6 +369,20 @@ main {
   font-weight: 500;
 }
 
+.settings-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.settings-status.completed {
+  color: var(--green);
+}
+
+.settings-status.not_completed {
+  color: var(--red);
+}
+
 .muted-sub {
   color: var(--muted);
   font-family: 'Space Grotesk', system-ui, sans-serif;
