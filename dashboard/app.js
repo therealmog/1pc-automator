@@ -132,6 +132,52 @@ function showEmailChangeToast() {
   input.select();
 }
 
+function showSkipConfirmToast(message, onConfirm) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  t.className = "confirm-toast skip-confirm-toast";
+  t.innerHTML = `
+    <div class="email-toast-header">
+      <div>
+        <div class="email-toast-title">Skip transfer</div>
+        <div class="email-toast-subtitle">${message}</div>
+      </div>
+      <button class="email-toast-close" id="skipConfirmClose" type="button" aria-label="Close">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="email-toast-actions">
+      <button class="email-toast-cancel" id="skipConfirmCancel" type="button">Cancel</button>
+      <button class="email-toast-save" id="skipConfirmYes" type="button">Skip transfer</button>
+    </div>
+  `;
+
+  t.classList.add("show");
+
+  const closeButton = document.getElementById("skipConfirmClose");
+  const cancelButton = document.getElementById("skipConfirmCancel");
+  const yesButton = document.getElementById("skipConfirmYes");
+
+  const close = () => {
+    t.classList.remove("show");
+  };
+
+  closeButton.addEventListener("click", close);
+  cancelButton.addEventListener("click", close);
+  yesButton.addEventListener("click", () => {
+    close();
+    onConfirm();
+  });
+
+  yesButton.focus();
+}
+
 function showTransferTimeToast() {
   const t = document.getElementById("toast");
   if (!t) return;
@@ -428,11 +474,20 @@ function render() {
     todayStatus,
     todayStatus === "skipped"
       ? getDueText(getDateOffset(1), d.transferDueTime())
-      : getDueText(getDateOffset(0), d.transferDueTime())
+      : getDueText(
+          challengeNotStarted && startDate ? startDate : getDateOffset(0),
+          d.transferDueTime()
+        )
   );
 
   const nextDueDate =
-    skipActive && rawTodayStatus === "completed"
+    challengeNotStarted && startDate
+      ? (() => {
+          const dayAfterStart = new Date(startDate);
+          dayAfterStart.setDate(dayAfterStart.getDate() + 1);
+          return dayAfterStart;
+        })()
+      : skipActive && rawTodayStatus === "completed"
       ? getDateOffset(2)
       : nextTransferDate;
 
@@ -771,24 +826,29 @@ async function handleSkipNextTransfer() {
     return;
   }
 
-  try {
-    const skipPromise = DataStore.skipNextTransfer();
+  showSkipConfirmToast(
+    "Are you sure you want to skip the next transfer? You can unskip it from the dashboard afterwards.",
+    async () => {
+      try {
+        const skipPromise = DataStore.skipNextTransfer();
 
-    showToast("Next transfer skipped");
+        showToast("Next transfer skipped");
 
-    const skipped = await skipPromise;
+        const skipped = await skipPromise;
 
-    if (!skipped) {
-      return;
+        if (!skipped) {
+          return;
+        }
+      } catch (err) {
+        console.error(
+          "Could not skip transfer:",
+          err
+        );
+
+        showToast("Could not skip transfer");
+      }
     }
-  } catch (err) {
-    console.error(
-      "Could not skip transfer:",
-      err
-    );
-
-    showToast("Could not skip transfer");
-  }
+  );
 }
 
 async function handleSkipTodayTransfer() {
@@ -796,16 +856,21 @@ async function handleSkipTodayTransfer() {
     return;
   }
 
-  try {
-    await DataStore.skipTodayTransfer();
-    showToast("Today's transfer skipped");
-  } catch (err) {
-    console.error(
-      "Could not skip today's transfer:",
-      err
-    );
-    showToast("Could not skip today's transfer");
-  }
+  showSkipConfirmToast(
+    "Are you sure you want to skip today's transfer? You can unskip it from the dashboard afterwards.",
+    async () => {
+      try {
+        await DataStore.skipTodayTransfer();
+        showToast("Today's transfer skipped");
+      } catch (err) {
+        console.error(
+          "Could not skip today's transfer:",
+          err
+        );
+        showToast("Could not skip today's transfer");
+      }
+    }
+  );
 }
 
 function switchTab(tab) {
@@ -907,6 +972,31 @@ function wireEvents() {
     .addEventListener(
       "click",
       () => {
+        const settingsFile = DataStore.get().settingsFile || {};
+
+        if (settingsFile.startDate) {
+          const start = DataStore.parseDateDDMMYYYY(
+            settingsFile.startDate
+          );
+
+          const today = new Date(
+            new Date().getFullYear(),
+            new Date().getMonth(),
+            new Date().getDate()
+          );
+
+          const startMidnight = new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate()
+          );
+
+          if (startMidnight > today) {
+            showToast("Your challenge has not started yet!");
+            return;
+          }
+        }
+
         showToast("Progress email sent");
       }
     );

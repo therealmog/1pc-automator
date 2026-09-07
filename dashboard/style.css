@@ -506,6 +506,24 @@ main {
   justify-content: flex-start;
 }
 
+.teal-btn.skipped-btn,
+.teal-btn.skipped-btn:hover,
+.teal-btn.skipped-btn:active {
+  background: #1a1a1a;
+  color: var(--muted);
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
+}
+
+.teal-btn:disabled {
+  background: #1a1a1a;
+  color: var(--muted);
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
+}
+
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
   font-weight: normal;
@@ -622,7 +640,8 @@ main {
 
 /* ---------- change email / transfer time toast ---------- */
 .email-toast,
-.time-toast {
+.time-toast,
+.skip-confirm-toast {
   width: min(420px, calc(100vw - 32px));
   box-sizing: border-box;
   background: #171717;
@@ -758,7 +777,8 @@ main {
 
 @media (max-width: 480px) {
   .email-toast,
-  .time-toast {
+  .time-toast,
+  .skip-confirm-toast {
     bottom: 16px;
     padding: 17px;
   }

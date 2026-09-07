@@ -72,6 +72,7 @@ def calculateAmounts():
     # Change settings to say that values have been stored.
     setValue("valuesCalculated","true")
     setValue("startDate",START.strftime("%d/%m/%Y"))
+    setValue("nextTransferDate",START.strftime("%d/%m/%Y"))
     setValue("endDate",date.strftime("%d/%m/%Y"))
 
     
