@@ -24,7 +24,7 @@ def config():
                 print("Invalid input, please try again.")
 
     settingsDict = {
-            1 : calculateAmounts
+            1 : restartChallenge
         }
 
     settingsDict[settingInput]()
@@ -38,7 +38,7 @@ def setValue(settingName,newValue):
     with open("settings.json","w") as f:
         json.dump(settingsDict,f,indent=4)
 
-def calculateAmounts():
+def restartChallenge():
     while True:
         date_input = input("Enter the challenge start date (DD/MM/YYYY): ")
 
@@ -58,7 +58,7 @@ def calculateAmounts():
         amount = i
         dateKey = date.strftime("%d/%m/%Y")
         dateDict = {
-            "amount" : amount,
+            "amount" : "",
             "completed" : "false"
         }
         amountsDict[dateKey] = dateDict
@@ -70,10 +70,13 @@ def calculateAmounts():
     
 
     # Change settings to say that values have been stored.
-    setValue("valuesCalculated","true")
     setValue("startDate",START.strftime("%d/%m/%Y"))
     setValue("nextTransferDate",START.strftime("%d/%m/%Y"))
     setValue("endDate",date.strftime("%d/%m/%Y"))
+    setValue("restartDate","")
+    setValue("challengePaused","false")
+    setValue("transferTime","01:00")
+    setValue("currentAmount",0)
 
     
     # set_key(Path(".env"),"amountsCalculated","true")    # Set .env variable to true.

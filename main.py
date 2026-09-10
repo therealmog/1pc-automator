@@ -15,7 +15,7 @@ from random import choice
 
 class Automator:
     def __init__(self):
-        config.config()
+        #config.config()
         # Loading the token
         self.TOKEN = os.getenv("STARLING_TOKEN")
         if self.TOKEN == None:
