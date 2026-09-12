@@ -35,6 +35,26 @@ const QUOTES = [
 let currentQuote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
 let toastTimer = null;
 
+const API_ENDPOINT = "https://41vew2cei0.execute-api.eu-west-2.amazonaws.com/dev";
+
+async function apiCall(fn, body = {}) {
+  const url = `${API_ENDPOINT}?fn=${fn}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 function showToast(msg) {
   const t = document.getElementById("toast");
   if (!t) return;
@@ -108,7 +128,7 @@ function showEmailChangeToast() {
   closeButton.addEventListener("click", close);
   cancelButton.addEventListener("click", close);
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const email = input.value.trim();
@@ -119,9 +139,15 @@ function showEmailChangeToast() {
       return;
     }
 
-    DataStore.updateSettings({ email });
-    close();
-    showToast("Email updated");
+    try {
+      await apiCall( "setEmail", { email });
+      DataStore.updateSettings({ email });
+      close();
+      showToast("Email updated");
+    } catch (err) {
+      console.error("Could not update email:", err);
+      showToast("Could not update email");
+    }
   });
 
   input.addEventListener("input", () => {
@@ -236,7 +262,7 @@ function showTransferTimeToast() {
   closeButton.addEventListener("click", close);
   cancelButton.addEventListener("click", close);
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const transferTime = input.value;
@@ -247,12 +273,15 @@ function showTransferTimeToast() {
       return;
     }
 
-    DataStore.updateSettings({
-      transferTime
-    });
-
-    close();
-    showToast("Transfer time updated");
+    try {
+      await apiCall( "changeTransferTime", { newTime: transferTime });
+      DataStore.updateSettings({ transferTime });
+      close();
+      showToast("Transfer time updated");
+    } catch (err) {
+      console.error("Could not update transfer time:", err);
+      showToast("Could not update transfer time");
+    }
   });
 
   input.addEventListener("input", () => {
@@ -312,8 +341,14 @@ const close = (removeBlur = false) => {
 
   document.getElementById("pauseToastIndefinite").addEventListener("click", async () => {
     close();
-    await DataStore.pauseChallenge();
-    showToast("Challenge paused");
+    try {
+      await apiCall( "pauseChallenge", {});
+      DataStore.pauseChallenge();
+      showToast("Challenge paused");
+    } catch (err) {
+      console.error("Could not pause challenge:", err);
+      showToast("Could not pause challenge");
+    }
   });
 
   document.getElementById("pauseToastRevealDate").addEventListener("click", () => {
@@ -344,8 +379,14 @@ const close = (removeBlur = false) => {
 
     const formattedDate = DataStore.formatDateDDMMYYYY(selectedDate);
     close();
-    await DataStore.pauseChallenge(formattedDate);
-    showToast("Challenge paused");
+    try {
+      await apiCall( "pauseChallenge", { restartDate: formattedDate });
+      DataStore.pauseChallenge(formattedDate);
+      showToast("Challenge paused");
+    } catch (err) {
+      console.error("Could not pause challenge:", err);
+      showToast("Could not pause challenge");
+    }
   });
 
   document.getElementById("pauseDateInput").addEventListener("input", () => {
@@ -458,8 +499,15 @@ function showRestartPhraseToast() {
     }
 
     close();
-    await DataStore.restartChallenge();
-    showToast("Challenge restarted");
+    const startDate = DataStore.get().settingsFile?.startDate || "";
+    try {
+      await apiCall( "restartChallenge", { startDate });
+      await DataStore.restartChallenge();
+      showToast("Challenge restarted");
+    } catch (err) {
+      console.error("Could not restart challenge:", err);
+      showToast("Could not restart challenge");
+    }
   });
 
   document.getElementById("restartPhraseInput").addEventListener("input", () => {
@@ -1216,6 +1264,8 @@ async function handleSkipNextTransfer() {
       try {
         const skipPromise = DataStore.skipNextTransfer();
 
+        await apiCall( "skipNextTransfer", {});
+
         showToast("Next transfer skipped");
 
         const skipped = await skipPromise;
@@ -1464,15 +1514,23 @@ function wireEvents() {
     infoBackdrop.addEventListener("click", closeInfoModal);
   }
 
-  document.getElementById("btnPauseChallenge").addEventListener("click", () => {
+document.getElementById("btnPauseChallenge").addEventListener("click", async () => {
      const settingsFile = DataStore.get().settingsFile || {};
      const challengePaused =
        settingsFile.challengePaused === true ||
        settingsFile.challengePaused === "true";
 
-if (challengePaused) {
-        DataStore.restartChallenge();
-        showToast("Challenge restarted");
+ if (challengePaused) {
+        try {
+          await apiCall( "restartChallenge", {
+            startDate: settingsFile.startDate || ""
+          });
+          DataStore.restartChallenge();
+          showToast("Challenge restarted");
+        } catch (err) {
+          console.error("Could not restart challenge:", err);
+          showToast("Could not restart challenge");
+        }
       } else {
         const sFile = DataStore.get().settingsFile || {};
         const sStartDate = sFile.startDate
